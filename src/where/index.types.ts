@@ -1,30 +1,27 @@
-import type {KeyOf} from "@leyyo/common";
 import type {ConditionType} from "../condition";
 import type {FieldRaw, FieldRegular} from "../field";
 
-export type WhereValue<T, K extends keyof T = keyof T> = {
-    [P in K]: T[P];
+export type WhereValue<K extends string> = {
+    [P in K]: unknown;
 };
-export type WhereAny<T> = WhereValue<T> | Array<WhereGiven<T>|WhereGivenRaw|[KeyOf<T>, unknown]>;
+export type WhereAny<K extends string> = WhereValue<K> | Array<WhereGiven<K>|WhereGivenRaw|[K, unknown]>;
 
 export interface WhereGivenCondition {
-    eq?: string | ConditionType;
-    condition?: string | ConditionType;
-    value: unknown;
+    eq: string | ConditionType;
+    value?: unknown;
 }
 
-
-export type WhereGiven<T> = FieldRegular<T> & WhereGivenCondition;
+export type WhereGiven<K extends string> = FieldRegular<K> & WhereGivenCondition;
 
 export type WhereGivenRaw = FieldRaw & WhereGivenCondition;
 
-export type Where<T> = Array<WhereItemRegular<T>|WhereItemRaw>;
+export type Where<K extends string> = Array<WhereItemRegular<K>|WhereItemRaw>;
 
-export type WhereItemRegular<T> = FieldRegular<T> & WhereCondition;
+export type WhereItemRegular<K extends string> = FieldRegular<K> & WhereCondition;
 export type WhereItemRaw = FieldRaw & WhereCondition;
 
 export interface WhereCondition {
     fullRaw?: true;
-    condition?: ConditionType;
+    eq?: ConditionType;
     value?: unknown;
 }

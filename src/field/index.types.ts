@@ -1,7 +1,5 @@
-import type {KeyOf} from "@leyyo/common";
-
-export interface FieldRegular<T> {
-    field: KeyOf<T>;
+export interface FieldRegular<K extends string> {
+    field: K;
 }
 export interface FieldRaw {
     raw: string;

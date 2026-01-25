@@ -1,6 +1,8 @@
-import type {KeyOf} from "@leyyo/common";
 import type {QueryAny, QueryRegular} from "../query";
+import {BasicType} from "@leyyo/common";
 
 export interface QueryParserLike {
-    exec<T>(query: QueryAny<T>, availableFields: Array<KeyOf<T>|string>, name?: string): QueryRegular<T>;
+    exec<K extends string>(query: QueryAny<K>, availableFields: Array<K|string>, name?: string): QueryRegular<K>;
 }
+
+export type QueryValueType = BasicType | 'array' | 'null' | 'integer' | '*';

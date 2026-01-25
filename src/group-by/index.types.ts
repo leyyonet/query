@@ -1,10 +1,9 @@
-import type {KeyOf} from "@leyyo/common";
 import type {FieldRaw, FieldRegular} from "../field";
 
-export type GroupByAny<T> = Array<KeyOf<T> | GroupByGivenRegular<T> | GroupByGivenRaw>;
-export type GroupByGivenRegular<T> = FieldRegular<T>;
+export type GroupByAny<K extends string> = Array<K | GroupByGivenRegular<K> | GroupByGivenRaw>;
+export type GroupByGivenRegular<K extends string> = FieldRegular<K>;
 export type GroupByGivenRaw = FieldRaw;
 
-export type GroupBy<T> = Array<GroupByItemRegular<T>|GroupByItemRaw>;
-export type GroupByItemRegular<T> = FieldRegular<T>;
+export type GroupBy<K extends string> = Array<GroupByItemRegular<K>|GroupByItemRaw>;
+export type GroupByItemRegular<K extends string> = FieldRegular<K>;
 export type GroupByItemRaw = FieldRaw;

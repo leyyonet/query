@@ -1,4 +1,5 @@
 export * from './condition';
+export * from './error';
 export * from './field';
 export * from './group-by';
 export * from './order-by';
