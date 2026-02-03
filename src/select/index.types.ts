@@ -5,7 +5,10 @@ export type SelectGiven<K extends string> = FieldRegular<K> & FieldAs;
 
 export type SelectGivenRaw = FieldRaw & FieldAs;
 
-export type Select<K extends string> = true | Array<SelectItemRegular<K>|SelectItemRaw>;
+export interface Select<K extends string> {
+    all?: true,
+    fields?: Array<SelectItemRegular<K>|SelectItemRaw>;
+}
 
 export type SelectItemRegular<K extends string> = FieldRegular<K> & FieldAs;
 export type SelectItemRaw = FieldRaw & FieldAs;

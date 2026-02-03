@@ -1,4 +1,4 @@
-export * from './condition';
+export * from './operation';
 export * from './error';
 export * from './field';
 export * from './group-by';

@@ -1,25 +1,27 @@
 export const ConditionTypeItems = [
     // all
-    '==',
-    '!=',
+    'eq',
+    'ne',
     'null',
     '!null',
+    'missing',
+    '!missing',
 
     // string, number
-    '>',
-    '>=',
-    '<',
-    '<=',
+    'gt',
+    'gte',
+    'lt',
+    'lte',
     'between',
     '!between',
     'in',
     '!in',
 
     // string
-    '^',
-    '!^',
-    '$',
-    '!$',
+    'starts',
+    '!starts',
+    'ends',
+    '!ends',
     'matches',
     '!matches',
 
@@ -43,20 +45,22 @@ export const ConditionTypeItems = [
     'exists',
     '!exists',
 ] as const;
-export type ConditionType = typeof ConditionTypeItems[number];
+export type OperationType = typeof ConditionTypeItems[number];
 
 // noinspection JSUnusedGlobalSymbols
-export const ConditionTypeMap: Record<string, ConditionType> = {
+export const OperationTypeMap: Record<string, OperationType> = {
     // all
-    'eq': '==',
-    '=': '==',
-    'equals': '==',
-    'equal': '==',
+    '=': 'eq',
+    '==': 'eq',
+    'equals': 'eq',
+    'equal': 'eq',
 
-    'ne': '!=',
-    '<>': '!=',
-    'not-equals': '!=',
-    'not-equal': '!=',
+    '!equals': 'ne',
+    '!equal': 'ne',
+    '!=': 'ne',
+    '<>': 'ne',
+    'not-equals': 'ne',
+    'not-equal': 'ne',
 
     'is-null': 'null',
     '!': 'null',
@@ -65,20 +69,29 @@ export const ConditionTypeMap: Record<string, ConditionType> = {
     '!!': '!null',
     'not-null': '!null',
 
+    'is-missing': 'missing',
+    'is-undefined': 'missing',
+    'undefined': 'missing',
+
+    'not-missing': '!missing',
+    'not-undefined': '!missing',
+    'defined': '!missing',
+
     // string, number
-    'greater-than': '>',
-    'gt': '>',
+    'greater-than': 'gt',
+    '>': 'gt',
 
-    'greater-than-or-equals': '>=',
-    'gte': '>=',
-    '=>': '>=',
+    'greater-than-or-equals': 'gte',
+    '>=': 'gte',
+    '=>': 'gte',
 
-    'less-than': '<',
-    'lt': '<',
+    'less-than': 'lt',
+    'less': 'lt',
+    '<': 'lt',
 
-    'less-than-or-equals': '<=',
-    '=<': '<=',
-    'lte': '<=',
+    'less-than-or-equals': 'lte',
+    '=<': 'lte',
+    '<=': 'lte',
 
     '()': 'between',
     'not-between': '!between',
@@ -90,33 +103,32 @@ export const ConditionTypeMap: Record<string, ConditionType> = {
     'not-in': '!in',
     // string
 
-    'starts-with': '^',
-    'start-with': '^',
-    'starts': '^',
-    'start': '^',
+    'starts-with': 'starts',
+    'start-with': 'starts',
+    '^': 'starts',
+    'start': 'starts',
 
-    'not-starts-with': '!^',
-    'not-start-with': '!^',
-    'not-starts': '!^',
-    'not-start': '!^',
-    '!starts-with': '!^',
-    '!start-with': '!^',
-    '!starts': '!^',
-    '!start': '!^',
+    'not-starts-with': '!starts',
+    'not-start-with': '!starts',
+    'not-starts': '!starts',
+    'not-start': '!starts',
+    '!starts-with': '!starts',
+    '!start-with': '!starts',
+    '!^': '!starts',
+    '!start': '!starts',
 
-    'ends-with': '$',
-    'end-with': '$',
-    'ends': '$',
-    'end': '$',
+    'ends-with': 'ends',
+    'end-with': 'ends',
+    '$': 'ends',
+    'end': 'ends',
 
-    'not-end-with': '!$',
-    'not-ends': '!$',
-    'not-end': '!$',
-    '!$': '!$',
-    '!ends-with': '!$',
-    '!end-with': '!$',
-    '!ends': '!$',
-    '!end': '!$',
+    'not-end-with': '!ends',
+    'not-ends': '!ends',
+    'not-end': '!ends',
+    '!$': '!ends',
+    '!ends-with': '!ends',
+    '!end-with': '!ends',
+    '!end': '!ends',
 
     'match': 'matches',
 
@@ -140,10 +152,10 @@ export const ConditionTypeMap: Record<string, ConditionType> = {
 
     // boolean
     'yes': 'true',
-    'on': 'true',
-    'ok': 'true',
     'no': 'false',
+    'on': 'true',
     'off': 'false',
+    'ok': 'true',
     'none': 'false',
 
 

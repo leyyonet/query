@@ -1,4 +1,4 @@
-import type {ConditionType} from "../condition";
+import type {OperationType} from "../operation";
 import type {FieldRaw, FieldRegular} from "../field";
 
 export type WhereValue<K extends string> = {
@@ -7,7 +7,7 @@ export type WhereValue<K extends string> = {
 export type WhereAny<K extends string> = WhereValue<K> | Array<WhereGiven<K>|WhereGivenRaw|[K, unknown]>;
 
 export interface WhereGivenCondition {
-    eq: string | ConditionType;
+    op: string | OperationType;
     value?: unknown;
 }
 
@@ -22,6 +22,6 @@ export type WhereItemRaw = FieldRaw & WhereCondition;
 
 export interface WhereCondition {
     fullRaw?: true;
-    eq?: ConditionType;
+    op?: OperationType;
     value?: unknown;
 }

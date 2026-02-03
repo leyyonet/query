@@ -1,5 +1,5 @@
-import {$is, type OneOrMore} from "@leyyo/common";
-import {type ConditionType, ConditionTypeItems, ConditionTypeMap} from "../condition";
+import type {OneOrMore} from "@leyyo/common";
+import {type OperationType, ConditionTypeItems, OperationTypeMap} from "../operation";
 import type {QueryParserLike, QueryValueType} from "./index.types";
 import type {Select, SelectAny, SelectGiven, SelectGivenRaw} from "../select";
 import type {GroupBy, GroupByAny, GroupByGivenRaw, GroupByGivenRegular} from "../group-by";
@@ -9,6 +9,7 @@ import type {PaginationAny, PaginationLimit, PaginationPage} from "../pagination
 import type {QueryAny, QueryRegular} from "../query";
 import type {FieldAs, FieldRaw, FieldRegular} from "../field";
 import {InvalidQueryValueError, type QueryErrorCode} from "../error";
+import {isEmpty, isIntegerValid, isLiteral, isNumberValid, isObjectBare, isText} from "@leyyo/type";
 
 class QueryParser implements QueryParserLike {
 
@@ -22,7 +23,7 @@ class QueryParser implements QueryParserLike {
     }
 
     private _emptyOrInvalid(value: unknown, path: string, expected: OneOrMore<QueryValueType>, empty: QueryErrorCode, invalid: QueryErrorCode): InvalidQueryValueError {
-        if ($is.empty(value)) {
+        if (isEmpty(value)) {
             return this._error(empty, `It's empty`, path);
         }
         if (typeof value === 'string' && value.trim() === '') {
@@ -32,13 +33,13 @@ class QueryParser implements QueryParserLike {
     }
 
     private _asc(value: unknown, path: string): boolean {
-        if ($is.empty(value)) {
+        if (isEmpty(value)) {
             return true;
         }
-        if ($is.boolean(value)) {
+        if (typeof value === 'boolean') {
             return value as boolean;
         }
-        else if ($is.text(value)) {
+        else if (isText(value)) {
             if ((value as string).toLowerCase() === 'asc') {
                 return true;
             }
@@ -51,41 +52,41 @@ class QueryParser implements QueryParserLike {
     }
 
     private _field<K extends string>(value: unknown, path: string): K {
-        if ($is.text(value)) {
+        if (isText(value)) {
             return value as K;
         }
         throw this._emptyOrInvalid(value, path, 'string', 'field:empty', 'field:invalid');
     }
     private _raw(value: unknown, path: string): string {
-        if ($is.text(value)) {
+        if (isText(value)) {
             return value as string;
         }
         throw this._emptyOrInvalid(value, path, 'string', 'raw:empty', 'raw:invalid');
     }
     private _as(value: unknown, path: string): string {
-        if ($is.empty(value)) {
+        if (isEmpty(value)) {
             return undefined;
         }
-        else if ($is.text(value)) {
+        else if (isText(value)) {
             return value as string;
         }
         throw this._invalid(value, path, 'string', 'as:invalid');
     }
-    private _condition(value: unknown, path: string): ConditionType {
-        if ($is.empty(value)) {
-            return '==';
+    private _operation(value: unknown, path: string): OperationType {
+        if (isEmpty(value)) {
+            return 'eq';
         }
-        else if ($is.text(value)) {
+        else if (isText(value)) {
             const key = value as string;
-            if ($is.literal(key, ConditionTypeItems)) {
-                return key as ConditionType;
+            if (isLiteral(key, ConditionTypeItems)) {
+                return key as OperationType;
             }
-            if (ConditionTypeMap[key] !== undefined) {
-                return ConditionTypeMap[key];
+            if (OperationTypeMap[key] !== undefined) {
+                return OperationTypeMap[key];
             }
-            throw this._error('eq:invalid-key', `It should be [@see equalities], but it's value: ${value}`, path);
+            throw this._error('op:invalid-key', `It should be [@see operations], but it's value: ${value}`, path);
         }
-        throw this._invalid(value, path, 'string', 'eq:invalid-type');
+        throw this._invalid(value, path, 'string', 'op:invalid-type');
     }
     private _value(value: unknown, path: string): Array<unknown> {
         if (value === undefined) {
@@ -108,7 +109,7 @@ class QueryParser implements QueryParserLike {
                 if (Array.isArray(value)) {
                     let index = 0;
                     for (const item of value) {
-                        if (!$is.text(item) && !$is.number(item) && !$is.boolean(value)) {
+                        if (!isText(item) && !isNumberValid(item) && typeof value !== 'boolean') {
                             throw this._invalid(item, `${path}[${index}]`, ['string', 'number', 'boolean', 'array', 'number'], 'value:invalid-item');
                         }
                         index++;
@@ -120,10 +121,10 @@ class QueryParser implements QueryParserLike {
         throw this._invalid(value, path, ['string', 'number', 'boolean', 'array', 'number'], 'value:invalid-type');
     }
     private _num(value: unknown, path: string, min: number): number {
-        if ($is.empty(value)) {
+        if (isEmpty(value)) {
             return undefined;
         }
-        else if ($is.integer(value)) {
+        else if (isIntegerValid(value)) {
             if ((value as number) >= min) {
                 return value as number;
             }
@@ -143,8 +144,8 @@ class QueryParser implements QueryParserLike {
 
     // region parts
     protected _select<K extends string>(given: SelectAny<K>, _availableFields: Array<K|string>, _name: string): Select<K> {
-        if ($is.empty(given)) {
-            return true;
+        if (isEmpty(given)) {
+            return {all: true};
         }
         // Cases:
         // 1 - '*'
@@ -152,21 +153,21 @@ class QueryParser implements QueryParserLike {
 
         // case 1: string as K
         if (given === '*') {
-            return true;
+            return {all: true};
         }
 
-        const newSelect: Select<K> = [];
+        const newSelect: Select<K> = {fields: []};
 
         // case 2: Array<K | [K, string] | SelectGiven<K> | SelectGivenRaw>
         if (Array.isArray(given)) {
             if (given.length < 1) {
-                return true;
+                return {all: true};
             }
             const arr = given as Array<K | [K, string] | SelectGiven<K> | SelectGivenRaw>;
             arr.forEach((item, index) => {
                 // Case 2A: K
-                if ($is.text(item)) {
-                    newSelect.push({
+                if (isText(item)) {
+                    newSelect.fields.push({
                         field: item as K,
                     });
                 }
@@ -175,19 +176,19 @@ class QueryParser implements QueryParserLike {
                     let [field, as] = item as [K, string];
                     field = this._field(field, `select[${index}][0]`);
                     as = this._as(as, `select[${index}][1]`);
-                    newSelect.push({field, as,});
+                    newSelect.fields.push({field, as,});
                 }
                 // Case 2C: SelectGiven<K> | SelectGivenRaw
-                else if ($is.object(item)) {
+                else if (isObjectBare(item)) {
                     let as: string;
                     let field: K;
                     let raw: string;
 
                     const obj = item as SelectGiven<K> | SelectGivenRaw;
-                    if (!$is.empty((obj as FieldRaw).raw)) {
+                    if (!isEmpty((obj as FieldRaw).raw)) {
                         raw = this._raw((obj as FieldRaw).raw, `select[${index}].raw`);
                     }
-                    if (!$is.empty((obj as FieldRegular<K>).field)) {
+                    if (!isEmpty((obj as FieldRegular<K>).field)) {
                         field = this._field((obj as FieldRegular<K>).field, `select[${index}].field`);
                     }
 
@@ -196,10 +197,10 @@ class QueryParser implements QueryParserLike {
                     as = this._as((obj as FieldAs).as, `select[${index}].as`);
 
                     if (field) {
-                        newSelect.push({field, as});
+                        newSelect.fields.push({field, as});
                     }
                     else {
-                        newSelect.push({raw, as});
+                        newSelect.fields.push({raw, as});
                     }
                 }
                 // other
@@ -217,7 +218,7 @@ class QueryParser implements QueryParserLike {
     }
 
     protected _where<K extends string>(scope: 'where'|'having', given: WhereAny<K>, _availableFields: Array<K|string>, _name: string): Where<K> {
-        if ($is.empty(given)) {
+        if (isEmpty(given)) {
             return [];
         }
         // Cases:
@@ -226,12 +227,12 @@ class QueryParser implements QueryParserLike {
         const newWhere: Where<K> = [];
 
         // case 1: WhereValue<K>
-        if ($is.object(given)) {
+        if (isObjectBare(given)) {
             let index = 0;
             for (let [k, v] of Object.entries(given)) {
                 const field = this._field(k, `${scope}(key=${index})`) as K;
                 const value = this._value(v, `${scope}.${field}`);
-                newWhere.push({field, value, eq: '=='});
+                newWhere.push({field, value, op: 'eq'});
                 index++;
             }
         }
@@ -244,35 +245,35 @@ class QueryParser implements QueryParserLike {
             const arr = given as Array<WhereGiven<K>|WhereGivenRaw|[K, unknown]>;
             arr.forEach((item, index) => {
                 // Case 2A: WhereGiven<K>|WhereGivenRaw
-                if ($is.object(item)) {
+                if (isObjectBare(item)) {
                     let field: K;
                     let raw: string;
-                    let eq: ConditionType;
+                    let op: OperationType;
                     let value: Array<unknown>;
                     let fullRaw: true;
 
                     const obj = item as WhereGiven<K>|WhereGivenRaw;
-                    if (!$is.empty((obj as FieldRaw).raw)) {
+                    if (!isEmpty((obj as FieldRaw).raw)) {
                         raw = this._raw((obj as OrderByGivenRaw).raw, `${scope}[${index}].raw`);
                     }
-                    if (!$is.empty((obj as FieldRegular<K>).field)) {
+                    if (!isEmpty((obj as FieldRegular<K>).field)) {
                         field = this._field((obj as FieldRegular<K>).field, `${scope}[${index}].field`);
                     }
 
                     this._fieldXorRaw(field, raw, `${scope}[${index}].field`)
 
                     const whereItem = obj as WhereGivenCondition;
-                    if (raw && $is.empty(whereItem.eq) && $is.empty(whereItem.value)) {
+                    if (raw && isEmpty(whereItem.op) && isEmpty(whereItem.value)) {
                         fullRaw = true;
                     }
-                    eq = this._condition(whereItem.eq, `${scope}[${index}].eq`);
+                    op = this._operation(whereItem.op, `${scope}[${index}].op`);
                     value = this._value(whereItem.value, `${scope}[${index}].value`);
 
                     if (field) {
-                        newWhere.push({field, eq, value});
+                        newWhere.push({field, op, value});
                     }
                     else {
-                        newWhere.push({raw, eq, value, fullRaw});
+                        newWhere.push({raw, op, value, fullRaw});
                     }
                 }
 
@@ -282,7 +283,7 @@ class QueryParser implements QueryParserLike {
                     let value: Array<unknown>;
                     field = this._field(item[0], `${scope}[${index}][0]`);
                     value = this._value(item[1], `${scope}[${index}][1]`);
-                    newWhere.push({field, value, eq: '=='});
+                    newWhere.push({field, value, op: 'eq'});
                 }
                 else {
                     throw this._invalid(item, `${scope}[${index}]`, ['object', 'array'], (scope === 'where') ? 'where:item': 'having:item');
@@ -297,7 +298,7 @@ class QueryParser implements QueryParserLike {
     }
 
     protected _groupBy<K extends string>(given: GroupByAny<K>, _availableFields: Array<K|string>, _name: string): GroupBy<K> {
-        if ($is.empty(given)) {
+        if (isEmpty(given)) {
             return [];
         }
         // Cases:
@@ -312,15 +313,15 @@ class QueryParser implements QueryParserLike {
             const arr = given as Array<K | GroupByGivenRegular<K> | GroupByGivenRaw>;
             arr.forEach((item, index) => {
                 // Case 2A: GroupByGivenRegular<K> | GroupByGivenRaw
-                if ($is.object(item)) {
+                if (isObjectBare(item)) {
                     let field: K;
                     let raw: string;
 
                     const obj = item as GroupByGivenRegular<K>|GroupByGivenRaw;
-                    if (!$is.empty((obj as FieldRaw).raw)) {
+                    if (!isEmpty((obj as FieldRaw).raw)) {
                         raw = this._raw((obj as FieldRaw).raw, `groupBy[${index}].raw`);
                     }
-                    if (!$is.empty((obj as FieldRegular<K>).field)) {
+                    if (!isEmpty((obj as FieldRegular<K>).field)) {
                         field = this._field((obj as FieldRegular<K>).field, `groupBy[${index}].field`);
                     }
 
@@ -335,7 +336,7 @@ class QueryParser implements QueryParserLike {
                 }
 
                 // Case 2B: K
-                else if ($is.text(item)) {
+                else if (isText(item)) {
                     newGroup.push({field: item as K});
                 }
                 else {
@@ -351,7 +352,7 @@ class QueryParser implements QueryParserLike {
     }
 
     protected _orderBy<K extends string>(given: OrderByAny<K>, _availableFields: Array<K|string>, _name: string): OrderBy<K> {
-        if ($is.empty(given)) {
+        if (isEmpty(given)) {
             return [];
         }
         // Cases:
@@ -361,7 +362,7 @@ class QueryParser implements QueryParserLike {
         const newOrder: OrderBy<K> = [];
 
         // case 1: string as K
-        if ($is.text(given)) {
+        if (isText(given)) {
             newOrder.push({field: given as K, asc: true});
         }
 
@@ -373,16 +374,16 @@ class QueryParser implements QueryParserLike {
             const arr = given as Array<OrderByGiven<K>|K|OrderByGivenRaw>;
             arr.forEach((item, index) => {
                 // Case 2A: OrderByGiven<K>|OrderByGivenRaw
-                if ($is.object(item)) {
+                if (isObjectBare(item)) {
                     let asc: boolean;
                     let field: K;
                     let raw: string;
 
                     const obj = item as OrderByGiven<K>|OrderByGivenRaw;
-                    if (!$is.empty((obj as FieldRaw).raw)) {
+                    if (!isEmpty((obj as FieldRaw).raw)) {
                         raw = this._raw((obj as OrderByGivenRaw).raw, `orderBy[${index}].raw`);
                     }
-                    if (!$is.empty((obj as FieldRegular<K>).field)) {
+                    if (!isEmpty((obj as FieldRegular<K>).field)) {
                         field = this._field((obj as OrderByGiven<K>).field, `orderBy[${index}].field`);
                     }
 
@@ -398,7 +399,7 @@ class QueryParser implements QueryParserLike {
                     }
                 }
                 // Case 2B: K
-                else if ($is.text(item)) {
+                else if (isText(item)) {
                     newOrder.push({field: this._field(item, ''), asc: true});
                 }
                 // other
@@ -408,7 +409,7 @@ class QueryParser implements QueryParserLike {
             });
         }
         // case 3: {'id': true, name: true, ...} as OrderByValue<K>
-        else if ($is.object(given)) {
+        else if (isObjectBare(given)) {
             let index = 0;
             for (let [k, v] of Object.entries(given)) {
                 const field = this._field(k, `orderBy(key=${index})`) as K;
@@ -426,7 +427,7 @@ class QueryParser implements QueryParserLike {
     }
 
     protected _pagination(given: PaginationAny, _name: string): PaginationLimit {
-        if ($is.empty(given)) {
+        if (isEmpty(given)) {
             return {};
         }
         // Case 1: PaginationLiteral
@@ -440,16 +441,16 @@ class QueryParser implements QueryParserLike {
             };
         }
         // Case 2: PaginationPage | PaginationLimit
-        else if ($is.object(given)) {
+        else if (isObjectBare(given)) {
             if (Object.keys(given).length < 1) {
                 return {};
             }
             const obj = given as PaginationPage & PaginationLimit;
-            if (!$is.empty(obj.page)) {
+            if (!isEmpty(obj.page)) {
                 const page = this._num(obj.page, `pagination.page`, 1);
                 const size = this._num(obj.size, `pagination.size`, 1) ?? 50;
                 ['limit', 'offset'].forEach(f => {
-                    if (!$is.empty(given[f])) {
+                    if (!isEmpty(given[f])) {
                         throw this._error('page:conflict', 'If you give page; limit and offset can not be used anymore', `pagination.page`);
                     }
                 });
@@ -458,9 +459,9 @@ class QueryParser implements QueryParserLike {
                     offset: (page - 1) * size
                 };
             }
-            if (!$is.empty(obj.limit)) {
+            if (!isEmpty(obj.limit)) {
                 ['page', 'size'].forEach(f => {
-                    if (!$is.empty(obj[f])) {
+                    if (!isEmpty(obj[f])) {
                         throw this._error('limit:conflict', 'If you give limit; page and size can not be used anymore', `pagination.limit`);
                     }
                 });
