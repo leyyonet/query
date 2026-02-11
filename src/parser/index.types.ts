@@ -1,4 +1,4 @@
-import type {QueryAny, QueryRegular} from "../query";
+import {QueryAny, QueryRegular} from "../query";
 import {BasicType} from "@leyyo/common";
 
 export interface QueryParserLike {

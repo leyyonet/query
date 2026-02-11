@@ -1,4 +1,4 @@
-export const ConditionTypeItems = [
+const literals = [
     // all
     'eq',
     'ne',
@@ -45,7 +45,11 @@ export const ConditionTypeItems = [
     'exists',
     '!exists',
 ] as const;
-export type OperationType = typeof ConditionTypeItems[number];
+/**
+ * Operation Type
+ * */
+export type OperationType = typeof literals[number];
+export const OperationTypeItems = literals as ReadonlyArray<OperationType>
 
 // noinspection JSUnusedGlobalSymbols
 export const OperationTypeMap: Record<string, OperationType> = {

@@ -1,15 +1,15 @@
-import type {OneOrMore} from "@leyyo/common";
-import {type OperationType, ConditionTypeItems, OperationTypeMap} from "../operation";
-import type {QueryParserLike, QueryValueType} from "./index.types";
-import type {Select, SelectAny, SelectGiven, SelectGivenRaw} from "../select";
-import type {GroupBy, GroupByAny, GroupByGivenRaw, GroupByGivenRegular} from "../group-by";
-import type {OrderBy, OrderByAny, OrderByGiven, OrderByGivenAsc, OrderByGivenRaw} from "../order-by";
-import type {Where, WhereAny, WhereGiven, WhereGivenCondition, WhereGivenRaw} from "../where";
-import type {PaginationAny, PaginationLimit, PaginationPage} from "../pagination";
-import type {QueryAny, QueryRegular} from "../query";
-import type {FieldAs, FieldRaw, FieldRegular} from "../field";
+import {isEmpty, isObj, isText, OneOrMore} from "@leyyo/common";
+import {OperationType, OperationTypeItems, OperationTypeMap} from "../operation";
+import {QueryParserLike, QueryValueType} from "./index.types";
+import {Select, SelectAny, SelectGiven, SelectGivenRaw} from "../select";
+import {GroupBy, GroupByAny, GroupByGivenRaw, GroupByGivenRegular} from "../group-by";
+import {OrderBy, OrderByAny, OrderByGiven, OrderByGivenAsc, OrderByGivenRaw} from "../order-by";
+import {Where, WhereAny, WhereGiven, WhereGivenCondition, WhereGivenRaw} from "../where";
+import {PaginationAny, PaginationLimit, PaginationPage} from "../pagination";
+import {QueryAny, QueryRegular} from "../query";
+import {FieldAs, FieldRaw, FieldRegular} from "../field";
 import {InvalidQueryValueError, type QueryErrorCode} from "../error";
-import {isEmpty, isIntegerValid, isLiteral, isNumberValid, isObjectBare, isText} from "@leyyo/type";
+import {isBareObject} from "@leyyo/type";
 
 class QueryParser implements QueryParserLike {
 
@@ -78,7 +78,7 @@ class QueryParser implements QueryParserLike {
         }
         else if (isText(value)) {
             const key = value as string;
-            if (isLiteral(key, ConditionTypeItems)) {
+            if (isText(key) && OperationTypeItems.includes(key as OperationType)) {
                 return key as OperationType;
             }
             if (OperationTypeMap[key] !== undefined) {
@@ -109,7 +109,7 @@ class QueryParser implements QueryParserLike {
                 if (Array.isArray(value)) {
                     let index = 0;
                     for (const item of value) {
-                        if (!isText(item) && !isNumberValid(item) && typeof value !== 'boolean') {
+                        if (!isText(item) && typeof value !== 'number' && typeof value !== 'boolean') {
                             throw this._invalid(item, `${path}[${index}]`, ['string', 'number', 'boolean', 'array', 'number'], 'value:invalid-item');
                         }
                         index++;
@@ -124,7 +124,7 @@ class QueryParser implements QueryParserLike {
         if (isEmpty(value)) {
             return undefined;
         }
-        else if (isIntegerValid(value)) {
+        else if (Number.isSafeInteger(value)) {
             if ((value as number) >= min) {
                 return value as number;
             }
@@ -179,7 +179,7 @@ class QueryParser implements QueryParserLike {
                     newSelect.fields.push({field, as,});
                 }
                 // Case 2C: SelectGiven<K> | SelectGivenRaw
-                else if (isObjectBare(item)) {
+                else if (isBareObject(item)) {
                     let as: string;
                     let field: K;
                     let raw: string;
@@ -227,7 +227,7 @@ class QueryParser implements QueryParserLike {
         const newWhere: Where<K> = [];
 
         // case 1: WhereValue<K>
-        if (isObjectBare(given)) {
+        if (isBareObject(given)) {
             let index = 0;
             for (let [k, v] of Object.entries(given)) {
                 const field = this._field(k, `${scope}(key=${index})`) as K;
@@ -245,7 +245,7 @@ class QueryParser implements QueryParserLike {
             const arr = given as Array<WhereGiven<K>|WhereGivenRaw|[K, unknown]>;
             arr.forEach((item, index) => {
                 // Case 2A: WhereGiven<K>|WhereGivenRaw
-                if (isObjectBare(item)) {
+                if (isBareObject(item)) {
                     let field: K;
                     let raw: string;
                     let op: OperationType;
@@ -313,7 +313,7 @@ class QueryParser implements QueryParserLike {
             const arr = given as Array<K | GroupByGivenRegular<K> | GroupByGivenRaw>;
             arr.forEach((item, index) => {
                 // Case 2A: GroupByGivenRegular<K> | GroupByGivenRaw
-                if (isObjectBare(item)) {
+                if (isBareObject(item)) {
                     let field: K;
                     let raw: string;
 
@@ -374,7 +374,7 @@ class QueryParser implements QueryParserLike {
             const arr = given as Array<OrderByGiven<K>|K|OrderByGivenRaw>;
             arr.forEach((item, index) => {
                 // Case 2A: OrderByGiven<K>|OrderByGivenRaw
-                if (isObjectBare(item)) {
+                if (isBareObject(item)) {
                     let asc: boolean;
                     let field: K;
                     let raw: string;
@@ -409,7 +409,7 @@ class QueryParser implements QueryParserLike {
             });
         }
         // case 3: {'id': true, name: true, ...} as OrderByValue<K>
-        else if (isObjectBare(given)) {
+        else if (isBareObject(given)) {
             let index = 0;
             for (let [k, v] of Object.entries(given)) {
                 const field = this._field(k, `orderBy(key=${index})`) as K;
@@ -441,7 +441,7 @@ class QueryParser implements QueryParserLike {
             };
         }
         // Case 2: PaginationPage | PaginationLimit
-        else if (isObjectBare(given)) {
+        else if (isBareObject(given)) {
             if (Object.keys(given).length < 1) {
                 return {};
             }

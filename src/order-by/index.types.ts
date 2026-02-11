@@ -1,4 +1,4 @@
-import type {FieldRaw, FieldRegular} from "../field";
+import {FieldRaw, FieldRegular} from "../field";
 
 export type OrderType = 'asc'|'desc';
 export type OrderByAny<K extends string> = K | Array<OrderByGiven<K>|K|OrderByGivenRaw> | OrderByValue<K>;

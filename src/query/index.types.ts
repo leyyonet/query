@@ -1,8 +1,8 @@
-import type {Select, SelectAny} from "../select";
-import type {Where, WhereAny} from "../where";
-import type {GroupBy, GroupByAny} from "../group-by";
-import type {OrderBy, OrderByAny} from "../order-by";
-import type {PaginationAny, PaginationLimit} from "../pagination";
+import {Select, SelectAny} from "../select";
+import {Where, WhereAny} from "../where";
+import {GroupBy, GroupByAny} from "../group-by";
+import {OrderBy, OrderByAny} from "../order-by";
+import {PaginationAny, PaginationLimit} from "../pagination";
 
 export interface QueryAny<K extends string> {
     select?: SelectAny<K>;
