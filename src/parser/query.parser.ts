@@ -1,4 +1,4 @@
-import {isEmpty, isFilledObj, isText, OneOrMore} from "@leyyo/common";
+import {isEmpty, isFilledObj, isText, OneOrMore, setFqn} from "@leyyo/common";
 import {OperationType, OperationTypeItems, OperationTypeMap} from "../operation/index.js";
 import {QueryParserLike, QueryValueType} from "./index.types.js";
 import {Select, SelectAny, SelectGiven, SelectGivenRaw} from "../select/index.js";
@@ -9,6 +9,7 @@ import {PaginationAny, PaginationLimit, PaginationPage} from "../pagination/inde
 import {QueryAny, QueryRegular} from "../query/index.js";
 import {FieldAs, FieldRaw, FieldRegular} from "../field/index.js";
 import {InvalidQueryValueError, QueryErrorCode} from "../error/index.js";
+import {FQN} from "../internal.js";
 
 class QueryParser implements QueryParserLike {
 
@@ -486,6 +487,7 @@ class QueryParser implements QueryParserLike {
         };
     }
 }
+setFqn(QueryParser, FQN);
 
 // noinspection JSUnusedGlobalSymbols
 export const queryParser: QueryParserLike = new QueryParser();
