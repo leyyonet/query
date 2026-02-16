@@ -1,4 +1,4 @@
-import {FieldAs, FieldRaw, FieldRegular} from "../field";
+import {FieldAs, FieldRaw, FieldRegular} from "../field/index.js";
 
 export type SelectAny<K extends string> = '*' | Array<K | [K, string] | SelectGiven<K> | SelectGivenRaw>;
 export type SelectGiven<K extends string> = FieldRegular<K> & FieldAs;

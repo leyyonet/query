@@ -1,1 +1,1 @@
-export * from './operation-type';
+export * from './operation-type.js';

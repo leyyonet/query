@@ -1,2 +1,2 @@
-export * from './index.types';
-export * from './query.parser';
+export * from './index.types.js';
+export * from './query.parser.js';

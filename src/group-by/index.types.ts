@@ -1,4 +1,4 @@
-import {FieldRaw, FieldRegular} from "../field";
+import {FieldRaw, FieldRegular} from "../field/index.js";
 
 export type GroupByAny<K extends string> = Array<K | GroupByGivenRegular<K> | GroupByGivenRaw>;
 export type GroupByGivenRegular<K extends string> = FieldRegular<K>;

@@ -1,6 +1,6 @@
-import {FieldRaw, FieldRegular} from "../field";
+import {FieldRaw, FieldRegular} from "../field/index.js";
+import {OrderType} from "../order-type/index.js";
 
-export type OrderType = 'asc'|'desc';
 export type OrderByAny<K extends string> = K | Array<OrderByGiven<K>|K|OrderByGivenRaw> | OrderByValue<K>;
 export type OrderByValue<K extends string> = {
     [field in K]: boolean|OrderType;

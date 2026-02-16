@@ -1,8 +1,8 @@
-import {Select, SelectAny} from "../select";
-import {Where, WhereAny} from "../where";
-import {GroupBy, GroupByAny} from "../group-by";
-import {OrderBy, OrderByAny} from "../order-by";
-import {PaginationAny, PaginationLimit} from "../pagination";
+import {Select, SelectAny} from "../select/index.js";
+import {Where, WhereAny} from "../where/index.js";
+import {GroupBy, GroupByAny} from "../group-by/index.js";
+import {OrderBy, OrderByAny} from "../order-by/index.js";
+import {PaginationAny, PaginationLimit} from "../pagination/index.js";
 
 export interface QueryAny<K extends string> {
     select?: SelectAny<K>;

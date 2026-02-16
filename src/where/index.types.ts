@@ -1,5 +1,5 @@
-import {OperationType} from "../operation";
-import {FieldRaw, FieldRegular} from "../field";
+import {OperationType} from "../operation/index.js";
+import {FieldRaw, FieldRegular} from "../field/index.js";
 
 export type WhereValue<K extends string> = {
     [P in K]: unknown;

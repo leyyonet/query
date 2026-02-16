@@ -1,15 +1,14 @@
-import {isEmpty, isObj, isText, OneOrMore} from "@leyyo/common";
-import {OperationType, OperationTypeItems, OperationTypeMap} from "../operation";
-import {QueryParserLike, QueryValueType} from "./index.types";
-import {Select, SelectAny, SelectGiven, SelectGivenRaw} from "../select";
-import {GroupBy, GroupByAny, GroupByGivenRaw, GroupByGivenRegular} from "../group-by";
-import {OrderBy, OrderByAny, OrderByGiven, OrderByGivenAsc, OrderByGivenRaw} from "../order-by";
-import {Where, WhereAny, WhereGiven, WhereGivenCondition, WhereGivenRaw} from "../where";
-import {PaginationAny, PaginationLimit, PaginationPage} from "../pagination";
-import {QueryAny, QueryRegular} from "../query";
-import {FieldAs, FieldRaw, FieldRegular} from "../field";
-import {InvalidQueryValueError, type QueryErrorCode} from "../error";
-import {isBareObject} from "@leyyo/type";
+import {isEmpty, isFilledObj, isText, OneOrMore} from "@leyyo/common";
+import {OperationType, OperationTypeItems, OperationTypeMap} from "../operation/index.js";
+import {QueryParserLike, QueryValueType} from "./index.types.js";
+import {Select, SelectAny, SelectGiven, SelectGivenRaw} from "../select/index.js";
+import {GroupBy, GroupByAny, GroupByGivenRaw, GroupByGivenRegular} from "../group-by/index.js";
+import {OrderBy, OrderByAny, OrderByGiven, OrderByGivenAsc, OrderByGivenRaw} from "../order-by/index.js";
+import {Where, WhereAny, WhereGiven, WhereGivenCondition, WhereGivenRaw} from "../where/index.js";
+import {PaginationAny, PaginationLimit, PaginationPage} from "../pagination/index.js";
+import {QueryAny, QueryRegular} from "../query/index.js";
+import {FieldAs, FieldRaw, FieldRegular} from "../field/index.js";
+import {InvalidQueryValueError, QueryErrorCode} from "../error/index.js";
 
 class QueryParser implements QueryParserLike {
 
@@ -179,7 +178,7 @@ class QueryParser implements QueryParserLike {
                     newSelect.fields.push({field, as,});
                 }
                 // Case 2C: SelectGiven<K> | SelectGivenRaw
-                else if (isBareObject(item)) {
+                else if (isFilledObj(item)) {
                     let as: string;
                     let field: K;
                     let raw: string;
@@ -227,7 +226,7 @@ class QueryParser implements QueryParserLike {
         const newWhere: Where<K> = [];
 
         // case 1: WhereValue<K>
-        if (isBareObject(given)) {
+        if (isFilledObj(given)) {
             let index = 0;
             for (let [k, v] of Object.entries(given)) {
                 const field = this._field(k, `${scope}(key=${index})`) as K;
@@ -245,7 +244,7 @@ class QueryParser implements QueryParserLike {
             const arr = given as Array<WhereGiven<K>|WhereGivenRaw|[K, unknown]>;
             arr.forEach((item, index) => {
                 // Case 2A: WhereGiven<K>|WhereGivenRaw
-                if (isBareObject(item)) {
+                if (isFilledObj(item)) {
                     let field: K;
                     let raw: string;
                     let op: OperationType;
@@ -313,7 +312,7 @@ class QueryParser implements QueryParserLike {
             const arr = given as Array<K | GroupByGivenRegular<K> | GroupByGivenRaw>;
             arr.forEach((item, index) => {
                 // Case 2A: GroupByGivenRegular<K> | GroupByGivenRaw
-                if (isBareObject(item)) {
+                if (isFilledObj(item)) {
                     let field: K;
                     let raw: string;
 
@@ -374,7 +373,7 @@ class QueryParser implements QueryParserLike {
             const arr = given as Array<OrderByGiven<K>|K|OrderByGivenRaw>;
             arr.forEach((item, index) => {
                 // Case 2A: OrderByGiven<K>|OrderByGivenRaw
-                if (isBareObject(item)) {
+                if (isFilledObj(item)) {
                     let asc: boolean;
                     let field: K;
                     let raw: string;
@@ -409,7 +408,7 @@ class QueryParser implements QueryParserLike {
             });
         }
         // case 3: {'id': true, name: true, ...} as OrderByValue<K>
-        else if (isBareObject(given)) {
+        else if (isFilledObj(given)) {
             let index = 0;
             for (let [k, v] of Object.entries(given)) {
                 const field = this._field(k, `orderBy(key=${index})`) as K;
@@ -441,7 +440,7 @@ class QueryParser implements QueryParserLike {
             };
         }
         // Case 2: PaginationPage | PaginationLimit
-        else if (isBareObject(given)) {
+        else if (isFilledObj(given)) {
             if (Object.keys(given).length < 1) {
                 return {};
             }

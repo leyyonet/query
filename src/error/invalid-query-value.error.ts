@@ -1,4 +1,4 @@
-import {QueryErrorCode} from "./index.types";
+import {QueryErrorCode} from "./index.types.js";
 import {LeyyoError} from "@leyyo/common";
 
 export class InvalidQueryValueError extends LeyyoError {

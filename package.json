@@ -1,6 +1,6 @@
 {
   "name": "@leyyo/query",
-  "version": "1.3.1",
+  "version": "1.3.3",
   "description": "Query common component",
   "keywords": [
     "Query"
@@ -19,13 +19,13 @@
     "email": "mustafayelmer@gmail.com"
   },
   "main": "dist/index.js",
-  "type": "commonjs",
+  "type": "module",
   "scripts": {
     "clear": "rimraf dist && rimraf coverage",
     "clear:nm": "rimraf node_modules && npm run clear",
     "lint": "eslint src/**/*.ts --quiet",
     "lint:verbose": "eslint src/**/*.ts",
-    "asset": "node -r ts-node/register commands/assets.ts",
+    "asset": "node -r ts-node/register commands/assets.js",
     "build": "npm run clear && tsc && npm run asset",
     "test": "jest --config=jest.json --detectOpenHandles",
     "coverage": "rimraf coverage && jest --config=jest.json --coverage --coverageDirectory=coverage",
@@ -66,7 +66,6 @@
     }
   },
   "dependencies": {
-    "@leyyo/common": "^1.3.7",
-    "@leyyo/type": "^1.3.3"
+    "@leyyo/common": "^1.3.10"
   }
 }
