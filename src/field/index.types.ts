@@ -1,9 +1,9 @@
 export interface FieldRegular<K extends string> {
-    field: K;
+  field: K;
 }
 export interface FieldRaw {
-    raw: string;
+  raw: string;
 }
 export interface FieldAs {
-    as?: string;
+  as?: string;
 }

@@ -1,8 +1,12 @@
-import {QueryErrorCode} from "./index.types.js";
-import {LeyyoError} from "@leyyo/common";
+import { QueryErrorCode } from "./index.types.js";
+import { LeyyoError } from "@leyyo/common";
 
 export class InvalidQueryValueError extends LeyyoError {
-    constructor(code: QueryErrorCode, readonly message: string, readonly path: string) {
-        super(`[${code}] ${message} at ${path}`);
-    }
+  constructor(
+    code: QueryErrorCode,
+    readonly message: string,
+    readonly path: string,
+  ) {
+    super(`[${code}] ${message} at ${path}`);
+  }
 }

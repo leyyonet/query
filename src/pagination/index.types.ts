@@ -1,13 +1,13 @@
 export type PaginationAny = PaginationPage | PaginationLimit | PaginationLiteral;
 
 export interface PaginationPage {
-    page?: number;
-    size?: number;
+  page?: number;
+  size?: number;
 }
 
 export interface PaginationLimit {
-    limit?: number;
-    offset?: number;
+  limit?: number;
+  offset?: number;
 }
 
-export type PaginationLiteral = [number?, number?] // [limit, offset]
+export type PaginationLiteral = [number?, number?]; // [limit, offset]
