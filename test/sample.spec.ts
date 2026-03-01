@@ -1,9 +1,8 @@
 import { assert, beforeAll, describe, it } from "vitest";
-import { CausedError } from "@leyyo/common";
+import { initTest, CausedError } from "@leyyo/common";
 
-beforeAll(() => {
-  global.leyyo_testing;
-});
+beforeAll(() => initTest());
+
 describe("http", () => {
   it("not symbol", () => {
     assert.throws(() => {

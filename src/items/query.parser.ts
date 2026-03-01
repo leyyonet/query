@@ -1,53 +1,39 @@
-import { isEmpty, isFilledObj, isText, OneOrMore, setFqn } from "@leyyo/common";
-import { OperationType, OperationTypeItems, OperationTypeMap } from "../operation/index.js";
-import { QueryParserLike, QueryValueType } from "./index.types.js";
-import { Select, SelectAny, SelectGiven, SelectGivenRaw } from "../select/index.js";
-import { GroupBy, GroupByAny, GroupByGivenRaw, GroupByGivenRegular } from "../group-by/index.js";
+import { isEmpty, isFilledObj, isText, setFqn, testCase } from "@leyyo/common";
+import { OperationType, OperationTypeItems, OperationTypeMap } from "../literal/index.js";
 import {
+  FieldAs,
+  FieldRaw,
+  FieldRegular,
+  GroupBy,
+  GroupByAny,
+  GroupByGivenRaw,
+  GroupByGivenRegular,
   OrderBy,
   OrderByAny,
   OrderByGiven,
   OrderByGivenAsc,
   OrderByGivenRaw,
-} from "../order-by/index.js";
-import { Where, WhereAny, WhereGiven, WhereGivenCondition, WhereGivenRaw } from "../where/index.js";
-import { PaginationAny, PaginationLimit, PaginationPage } from "../pagination/index.js";
-import { QueryAny, QueryRegular } from "../query/index.js";
-import { FieldAs, FieldRaw, FieldRegular } from "../field/index.js";
-import { InvalidQueryValueError, QueryErrorCode } from "../error/index.js";
-import { FQN } from "../internal.js";
+  PaginationAny,
+  PaginationLimit,
+  PaginationPage,
+  QueryAny,
+  QueryParserLike,
+  QueryRegular,
+  Select,
+  SelectAny,
+  SelectGiven,
+  SelectGivenRaw,
+  Where,
+  WhereAny,
+  WhereGiven,
+  WhereGivenCondition,
+  WhereGivenRaw,
+} from "../type.js";
+import { InvalidQueryValueError } from "../error/index.js";
+import { PCK } from "../internal.js";
 
 class QueryParser implements QueryParserLike {
   // region private
-  private _error(code: QueryErrorCode, message: string, path: string): InvalidQueryValueError {
-    return new InvalidQueryValueError(code, message, path);
-  }
-  private _invalid(
-    value: unknown,
-    path: string,
-    expected: OneOrMore<QueryValueType>,
-    code: QueryErrorCode,
-  ): InvalidQueryValueError {
-    const ex = Array.isArray(expected) ? `[${expected.join(", ")}]` : expected;
-    return this._error(code, `It's expected as ${ex}, but it's type: ${typeof value}`, path);
-  }
-
-  private _emptyOrInvalid(
-    value: unknown,
-    path: string,
-    expected: OneOrMore<QueryValueType>,
-    empty: QueryErrorCode,
-    invalid: QueryErrorCode,
-  ): InvalidQueryValueError {
-    if (isEmpty(value)) {
-      return this._error(empty, `It's empty`, path);
-    }
-    if (typeof value === "string" && value.trim() === "") {
-      return this._error(empty, `It's empty`, path);
-    }
-    return this._invalid(value, path, expected, invalid);
-  }
-
   private _asc(value: unknown, path: string): boolean {
     if (isEmpty(value)) {
       return true;
@@ -60,26 +46,39 @@ class QueryParser implements QueryParserLike {
       } else if ((value as string).toLowerCase() === "desc") {
         return false;
       }
-      throw this._error(
-        "asc:invalid-key",
-        `It should be [asc, desc], but it's value: ${value}`,
-        path,
-      );
     }
-    throw this._invalid(value, path, ["boolean", "string"], "asc:invalid-type");
+    throw new InvalidQueryValueError(`Order type should be valid`, {
+      case: testCase(PCK, 110),
+      path,
+      expected: ["true", "false", "asc", "desc"],
+      type: typeof value,
+      value,
+    });
   }
 
   private _field<K extends string>(value: unknown, path: string): K {
     if (isText(value)) {
       return value as K;
     }
-    throw this._emptyOrInvalid(value, path, "string", "field:empty", "field:invalid");
+    throw new InvalidQueryValueError(`Field should be valid text`, {
+      case: testCase(PCK, 100),
+      path,
+      expected: "string",
+      type: typeof value,
+      value,
+    });
   }
   private _raw(value: unknown, path: string): string {
     if (isText(value)) {
       return value as string;
     }
-    throw this._emptyOrInvalid(value, path, "string", "raw:empty", "raw:invalid");
+    throw new InvalidQueryValueError(`Raw data should be valid text`, {
+      case: testCase(PCK, 101),
+      path,
+      expected: "string",
+      type: typeof value,
+      value,
+    });
   }
   private _as(value: unknown, path: string): string {
     if (isEmpty(value)) {
@@ -87,7 +86,13 @@ class QueryParser implements QueryParserLike {
     } else if (isText(value)) {
       return value as string;
     }
-    throw this._invalid(value, path, "string", "as:invalid");
+    throw new InvalidQueryValueError(`As command should be valid text`, {
+      case: testCase(PCK, 120),
+      path,
+      expected: "string",
+      type: typeof value,
+      value,
+    });
   }
   private _operation(value: unknown, path: string): OperationType {
     if (isEmpty(value)) {
@@ -100,13 +105,14 @@ class QueryParser implements QueryParserLike {
       if (OperationTypeMap[key] !== undefined) {
         return OperationTypeMap[key];
       }
-      throw this._error(
-        "op:invalid-key",
-        `It should be [@see operations], but it's value: ${value}`,
-        path,
-      );
     }
-    throw this._invalid(value, path, "string", "op:invalid-type");
+    throw new InvalidQueryValueError(`Operation command should be valid`, {
+      case: testCase(PCK, 130),
+      path,
+      expected: "@see operations",
+      type: typeof value,
+      value,
+    });
   }
   private _value(value: unknown, path: string): Array<unknown> {
     if (value === undefined) {
@@ -114,9 +120,14 @@ class QueryParser implements QueryParserLike {
     }
     switch (typeof value) {
       case "string":
-        value = value.trim();
-        if (!value) {
-          throw this._error("value:invalid-type", `It should not be empty string`, path);
+        if (!isText(value)) {
+          throw new InvalidQueryValueError(`Value should not be empty or spaced string`, {
+            case: testCase(PCK, 131),
+            path,
+            expected: "string",
+            type: typeof value,
+            value,
+          });
         }
         return [value];
       case "number":
@@ -130,12 +141,14 @@ class QueryParser implements QueryParserLike {
           let index = 0;
           for (const item of value) {
             if (!isText(item) && typeof value !== "number" && typeof value !== "boolean") {
-              throw this._invalid(
+              throw new InvalidQueryValueError(`Value should be string, number or boolean`, {
+                case: testCase(PCK, 132),
+                path,
+                expected: ["string", "number", "boolean"],
+                type: typeof item,
                 item,
-                `${path}[${index}]`,
-                ["string", "number", "boolean", "array", "number"],
-                "value:invalid-item",
-              );
+                index,
+              });
             }
             index++;
           }
@@ -143,12 +156,13 @@ class QueryParser implements QueryParserLike {
         }
         break;
     }
-    throw this._invalid(
-      value,
+    throw new InvalidQueryValueError(`Value should be valid`, {
+      case: testCase(PCK, 133),
       path,
-      ["string", "number", "boolean", "array", "number"],
-      "value:invalid-type",
-    );
+      expected: ["string", "number", "boolean", "array", "number"],
+      type: typeof value,
+      value,
+    });
   }
   private _num(value: unknown, path: string, min: number): number {
     if (isEmpty(value)) {
@@ -157,22 +171,36 @@ class QueryParser implements QueryParserLike {
       if ((value as number) >= min) {
         return value as number;
       }
-      throw this._error("integer:min", `It should be gte ${min}`, path);
+      throw new InvalidQueryValueError(`It should be ${min} as minimum`, {
+        case: testCase(PCK, 102),
+        path,
+        min,
+        value,
+      });
     }
-    throw this._invalid(value, path, ["integer"], "integer:invalid");
+    throw new InvalidQueryValueError(`Value should be numeric`, {
+      case: testCase(PCK, 103),
+      path,
+      expected: "number",
+      type: typeof value,
+      value,
+    });
   }
   private _fieldXorRaw(field: unknown, raw: unknown, path: string): void {
     if (!raw && !field) {
-      throw this._error(
-        "field:raw-none",
-        `Field or raw are not provided, one of them should be`,
+      throw new InvalidQueryValueError(`Field or raw are not provided, one of them should be`, {
+        case: testCase(PCK, 104),
         path,
-      );
+      });
     } else if (raw && field) {
-      throw this._error(
-        "field:raw-both",
+      throw new InvalidQueryValueError(
         `Field and raw are provided together, Field or raw are not provided, only one of them should be`,
-        path,
+        {
+          case: testCase(PCK, 105),
+          path,
+          raw,
+          field: field as string,
+        },
       );
     }
   }
@@ -243,19 +271,27 @@ class QueryParser implements QueryParserLike {
         }
         // other
         else {
-          throw this._invalid(
-            item,
-            `select[${index}]`,
-            ["string", "array", "object"],
-            "select:item",
-          );
+          throw new InvalidQueryValueError(`Invalid select item`, {
+            case: testCase(PCK, 121),
+            path: `select[${index}]`,
+            expected: ["string", "array", "object"],
+            type: typeof item,
+            value: item,
+            index,
+          });
         }
       });
     }
 
     // case: other
     else {
-      throw this._invalid(given, `select`, ["*", "array"], "select:body");
+      throw new InvalidQueryValueError(`Invalid select block`, {
+        case: testCase(PCK, 122),
+        path: "select",
+        expected: ["*", "array"],
+        type: typeof given,
+        value: given,
+      });
     }
     return newSelect;
   }
@@ -328,23 +364,26 @@ class QueryParser implements QueryParserLike {
           const value: Array<unknown> = this._value(item[1], `${scope}[${index}][1]`);
           newWhere.push({ field, value, op: "eq" });
         } else {
-          throw this._invalid(
-            item,
-            `${scope}[${index}]`,
-            ["object", "array"],
-            scope === "where" ? "where:item" : "having:item",
-          );
+          throw new InvalidQueryValueError(`Invalid ${scope} item`, {
+            case: testCase(PCK, scope === "where" ? 134 : 144),
+            path: `${scope}[${index}]`,
+            expected: ["object", "array"],
+            type: typeof item,
+            value: item,
+            index,
+          });
         }
       });
     }
     // case: other
     else {
-      throw this._invalid(
-        given,
-        scope,
-        ["object", "array"],
-        scope === "where" ? "where:body" : "having:body",
-      );
+      throw new InvalidQueryValueError(`Invalid ${scope} block`, {
+        case: testCase(PCK, scope === "where" ? 135 : 145),
+        path: scope,
+        expected: ["object", "array"],
+        type: typeof given,
+        value: given,
+      });
     }
     return newWhere;
   }
@@ -394,13 +433,26 @@ class QueryParser implements QueryParserLike {
         else if (isText(item)) {
           newGroup.push({ field: item as K });
         } else {
-          throw this._invalid(item, `groupBy[${index}]`, ["string", "object"], "groupBy:item");
+          throw new InvalidQueryValueError(`Invalid group by item`, {
+            case: testCase(PCK, 150),
+            path: `groupBy[${index}]`,
+            expected: ["string", "object"],
+            type: typeof item,
+            value: item,
+            index,
+          });
         }
       });
     }
     // case: other
     else {
-      throw this._invalid(given, `groupBy`, ["array"], "groupBy:body");
+      throw new InvalidQueryValueError(`Invalid group by block`, {
+        case: testCase(PCK, 151),
+        path: "groupBy",
+        expected: ["array"],
+        type: typeof given,
+        value: given,
+      });
     }
     return newGroup;
   }
@@ -460,7 +512,14 @@ class QueryParser implements QueryParserLike {
         }
         // other
         else {
-          throw this._invalid(item, `orderBy[${index}]`, ["string", "object"], "orderBy:item");
+          throw new InvalidQueryValueError(`Invalid order by item`, {
+            case: testCase(PCK, 111),
+            path: `orderBy[${index}]`,
+            expected: ["string", "object"],
+            type: typeof item,
+            value: item,
+            index,
+          });
         }
       });
     }
@@ -477,7 +536,13 @@ class QueryParser implements QueryParserLike {
 
     // case: other
     else {
-      throw this._invalid(given, `orderBy`, ["string", "array", "object"], "orderBy:body");
+      throw new InvalidQueryValueError(`Invalid order by block`, {
+        case: testCase(PCK, 112),
+        path: "orderBy",
+        expected: ["string", "array", "object"],
+        type: typeof given,
+        value: given,
+      });
     }
     return newOrder;
   }
@@ -507,10 +572,13 @@ class QueryParser implements QueryParserLike {
         const size = this._num(obj.size, `pagination.size`, 1) ?? 50;
         ["limit", "offset"].forEach((f) => {
           if (!isEmpty(given[f])) {
-            throw this._error(
-              "page:conflict",
-              "If you give page; limit and offset can not be used anymore",
-              `pagination.page`,
+            throw new InvalidQueryValueError(
+              `If you give page; limit and offset can not be used anymore`,
+              {
+                case: testCase(PCK, 160),
+                path: "pagination",
+                value: given,
+              },
             );
           }
         });
@@ -522,10 +590,13 @@ class QueryParser implements QueryParserLike {
       if (!isEmpty(obj.limit)) {
         ["page", "size"].forEach((f) => {
           if (!isEmpty(obj[f])) {
-            throw this._error(
-              "limit:conflict",
-              "If you give limit; page and size can not be used anymore",
-              `pagination.limit`,
+            throw new InvalidQueryValueError(
+              `If you give limit; page and size can not be used anymore`,
+              {
+                case: testCase(PCK, 161),
+                path: "pagination",
+                value: given,
+              },
             );
           }
         });
@@ -534,13 +605,19 @@ class QueryParser implements QueryParserLike {
           offset: this._num(obj.offset, `pagination.offset`, 0),
         };
       }
-      throw this._error(
-        "pagination:invalid-key",
-        "Pagination should have limit/offset or page/size keys",
-        "pagination",
-      );
+      throw new InvalidQueryValueError(`Pagination should have limit/offset or page/size keys`, {
+        case: testCase(PCK, 162),
+        path: "pagination",
+        value: given,
+      });
     }
-    throw this._invalid(given, "pagination", ["array", "object"], "pagination:invalid-type");
+    throw new InvalidQueryValueError(`Invalid pagination block`, {
+      case: testCase(PCK, 163),
+      path: "pagination",
+      expected: ["array", "object"],
+      type: typeof given,
+      value: given,
+    });
   }
   // endregion parts
 
@@ -559,7 +636,7 @@ class QueryParser implements QueryParserLike {
     };
   }
 }
-setFqn(QueryParser, FQN);
+setFqn(QueryParser, PCK);
 
 // noinspection JSUnusedGlobalSymbols
 export const queryParser: QueryParserLike = new QueryParser();
