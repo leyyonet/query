@@ -1,6 +1,6 @@
 {
   "name": "@leyyo/query",
-  "version": "4.0.2",
+  "version": "4.0.4",
   "description": "Query common component",
   "keywords": [
     "Query"
@@ -25,7 +25,7 @@
   },
   "type": "module",
   "scripts": {
-    "clear:dist": "rimraf dist & rimraf coverage",
+    "clear:dist": "rimraf dist && rimraf coverage",
     "clear:rm": "rimraf package-lock.json && rimraf node_modules",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
@@ -34,13 +34,14 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "asset:copy": "node -r ts-node/register commands/assets.js",
-    "build": "npm run clear:dist && tsc && npm run asset:copy",
-    "changeset:version": "npm version patch --no-git-tag-version",
-    "publish:before": "npm run lint && npm run format:force && npm run test && npm run build",
-    "changeset:verdaccio": "npm run publish:before && npx changeset publish --registry http://localhost:4873",
-    "changeset:npm": "npm run publish:before && npx changeset publish --registry https://registry.npmjs.org",
-    "publish:public": "npm run publish:before && npm publish --registry https://registry.npmjs.org --access=public"
+    "cmd:assets": "node -r ts-node/register commands/assets.js",
+    "cmd:minify": "node -r ts-node/register commands/minify.js",
+    "build": "npm run clear:dist && tsc && npm run cmd:minify && npm run cmd:assets",
+    "publish:before": "npm run lint && npm run format:check && npm run test && npm run build",
+    "changeset": "changeset",
+    "changeset:version": "changeset version",
+    "release:verdaccio": "npm run publish:before && changeset publish --registry http://localhost:4873",
+    "release:npm": "npm run publish:before && changeset publish --registry https://registry.npmjs.org"
   },
   "files": [
     "dist/*"
@@ -54,14 +55,16 @@
     "eslint": "^9.0.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-n": "^17.24.0",
+    "javascript-obfuscator": "^5.3.0",
     "prettier": "^3.8.1",
     "rimraf": "^6.0.1",
+    "terser": "^5.46.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.0.0",
     "vitest": "^4.0.18"
   },
   "dependencies": {
-    "@leyyo/common": "^4.0.2"
+    "@leyyo/common": "4.0.5"
   }
 }
