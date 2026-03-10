@@ -1,145 +1,290 @@
 import { OperationType, OrderType } from "./literal/index.js";
-import { BasicType } from "@leyyo/common";
 
 // region field
-export interface FieldRegular<K extends string> {
-  field: K;
+type FLD = string;
+type ALS = string | symbol;
+export interface FieldRegular<F extends FLD, A extends ALS, S extends string> {
+  field: QF<F, A, S>;
 }
+export type FieldRawValue = string;
 export interface FieldRaw {
-  raw: string;
+  raw: FieldRawValue;
 }
+export type FieldAsValue = string;
 export interface FieldAs {
-  as?: string;
+  as?: FieldAsValue;
 }
 // endregion field
 
 // region group-by
-export type GroupByAny<K extends string> = Array<K | GroupByGivenRegular<K> | GroupByGivenRaw>;
-export type GroupByGivenRegular<K extends string> = FieldRegular<K>;
-export type GroupByGivenRaw = FieldRaw;
 
-export type GroupBy<K extends string> = Array<GroupByItemRegular<K> | GroupByItemRaw>;
-export type GroupByItemRegular<K extends string> = FieldRegular<K>;
-export type GroupByItemRaw = FieldRaw;
+export type GroupByGiven<F extends FLD, A extends ALS, S extends string> = Array<
+  GroupByGivenItem<F, A, S>
+>;
+export type GroupByGivenItem<F extends FLD, A extends ALS, S extends string> =
+  | QF<F, A, S>
+  | GroupByGivenItemRegular<F, A, S>
+  | GroupByGivenItemRaw;
+export type GroupByGivenItemRegular<F extends FLD, A extends ALS, S extends string> = FieldRegular<
+  F,
+  A,
+  S
+>;
+export type GroupByGivenItemRaw = FieldRaw;
+
+export type GroupByFinalItem<F extends FLD, A extends ALS, S extends string> =
+  | GroupByFinalItemRegular<F, A, S>
+  | GroupByFinalItemRaw;
+export type GroupByFinalItemRegular<F extends FLD, A extends ALS, S extends string> = FieldRegular<
+  F,
+  A,
+  S
+>;
+export type GroupByFinalItemRaw = FieldRaw;
+export type GroupByFinal<F extends FLD, A extends ALS, S extends string> = Array<
+  GroupByFinalItem<F, A, S>
+>;
 // endregion group-by
 
 // region order-by
-export type OrderByAny<K extends string> =
-  | K
-  | Array<OrderByGiven<K> | K | OrderByGivenRaw>
-  | OrderByValue<K>;
-export type OrderByValue<K extends string> = {
-  [field in K]: boolean | OrderType;
+export type OrderByGiven<F extends FLD, A extends ALS, S extends string> =
+  | QF<F, A, S>
+  | Array<OrderByGivenItem<F, A, S>>
+  | OrderByGivenMap<F, A, S>;
+export type OrderByGivenMap<F extends FLD, A extends ALS, S extends string> = {
+  [field in QF<F, A, S>]?: OrderByGivenAscValue;
 };
 
+export type OrderByGivenAscValue = boolean | OrderType;
 export interface OrderByGivenAsc {
-  asc?: boolean | OrderType;
+  asc?: OrderByGivenAscValue;
 }
 
-export interface OrderAscRegular {
+export type OrderByGivenItem<F extends FLD, A extends ALS, S extends string> =
+  | QF<F, A, S>
+  | OrderByGivenItemField<F, A, S>
+  | OrderByGivenItemRaw;
+
+export type OrderByGivenItemField<F extends FLD, A extends ALS, S extends string> = FieldRegular<
+  F,
+  A,
+  S
+> &
+  OrderByGivenAsc;
+
+export type OrderByGivenItemRaw = FieldRaw & OrderByGivenAsc;
+
+export interface OrderByFinalAsc {
   asc: boolean;
 }
-
-export type OrderByGiven<K extends string> = FieldRegular<K> & OrderByGivenAsc;
-
-export type OrderByGivenRaw = FieldRaw & OrderByGivenAsc;
-
-export type OrderByItem<K extends string> = FieldRegular<K> & OrderAscRegular;
-export type OrderByRaw = FieldRaw & OrderAscRegular;
-
-export type OrderBy<K extends string> = Array<OrderByItem<K> | OrderByRaw>;
+export type OrderByFinalItemField<F extends FLD, A extends ALS, S extends string> = FieldRegular<
+  F,
+  A,
+  S
+> &
+  OrderByFinalAsc;
+export type OrderByFinalItemRaw = FieldRaw & OrderByFinalAsc;
+export type OrderByFinalItem<F extends FLD, A extends ALS, S extends string> =
+  | OrderByFinalItemField<F, A, S>
+  | OrderByFinalItemRaw;
+export type OrderByFinal<F extends FLD, A extends ALS, S extends string> = Array<
+  OrderByFinalItem<F, A, S>
+>;
 // endregion order-by
 
 // region pagination
-export type PaginationAny = PaginationPage | PaginationLimit | PaginationLiteral;
+export type PaginationGiven = PaginationGivenPage | PaginationGivenLimit | PaginationGivenTuple;
 
-export interface PaginationPage {
+export interface PaginationGivenPage {
   page?: number;
   size?: number;
 }
 
-export interface PaginationLimit {
+export interface PaginationGivenLimit {
   limit?: number;
   offset?: number;
 }
 
-export type PaginationLiteral = [number?, number?]; // [limit, offset]
+export type PaginationGivenTuple = [number?, number?]; // [limit, offset]
+
+export interface PaginationFinal {
+  limit: number;
+  offset: number;
+}
 // endregion pagination
+// region shortcut
+export type QueryShortcut<S extends string> = {
+  [field in S]?: FieldRawValue;
+};
+// endregion shortcut
 
 // region parser
 export interface QueryParserLike {
-  exec<K extends string>(
-    query: QueryAny<K>,
-    availableFields: Array<K | string>,
+  exec<F extends FLD = string, A extends ALS = symbol, S extends string = string>(
+    query: QueryGiven<F, A, S>,
+    availableFields: Array<QF<F, A, S>>,
+    aliases?: Array<A>,
     name?: string,
-  ): QueryRegular<K>;
+  ): QueryFinal<F, A, S>;
 }
 
-export type QueryValueType = BasicType | "array" | "null" | "integer" | "*";
 // endregion parser
 
 // region query
-export interface QueryAny<K extends string> {
-  select?: SelectAny<K>;
-  where?: WhereAny<K>;
-  having?: WhereAny<K>;
-  groupBy?: GroupByAny<K>;
-  orderBy?: OrderByAny<K>;
-  pagination?: PaginationAny;
+export interface QueryGiven<F extends FLD, A extends ALS, S extends string> {
+  shortcut?: QueryShortcut<S>;
+  select?: SelectGiven<F, A, S>;
+  where?: WhereGiven<F, A, S>;
+  having?: WhereGiven<F, A, S>;
+  groupBy?: GroupByGiven<F, A, S>;
+  orderBy?: OrderByGiven<F, A, S>;
+  pagination?: PaginationGiven;
+}
+export interface QueryGivenExtended<
+  F extends FLD,
+  A extends ALS,
+  S extends string,
+> extends QueryGiven<F, A, S> {
+  availableFields: Array<QueryField<F, A, S>>;
 }
 
-export interface QueryRegular<K extends string> {
-  select: Select<K>;
-  where: Where<K>;
-  having: Where<K>;
-  groupBy: GroupBy<K>;
-  orderBy: OrderBy<K>;
-  pagination: PaginationLimit;
+export interface QueryFinal<F extends FLD, A extends ALS, S extends string> {
+  readonly isSub: boolean;
+  readonly hasAny: boolean;
+  availableFields: Array<QueryField<F, A, S>>;
+  shortcut: QueryShortcut<S>;
+  select: SelectFinal<F, A, S>;
+  where: WhereFinal<F, A, S>;
+  having: WhereFinal<F, A, S>;
+  groupBy: GroupByFinal<F, A, S>;
+  orderBy: OrderByFinal<F, A, S>;
+  pagination: PaginationFinal;
 }
+
+export type QueryField<F extends FLD, A extends ALS, S extends string> = A extends string
+  ? `${A}.${F}` | F | S
+  : F | S;
+type QF<F extends FLD, A extends ALS, S extends string> = QueryField<F, A, S>;
 // endregion query
 
 // region select
-export type SelectAny<K extends string> =
-  | "*"
-  | Array<K | [K, string] | SelectGiven<K> | SelectGivenRaw>;
-export type SelectGiven<K extends string> = FieldRegular<K> & FieldAs;
+export type SelectGivenAll = "*";
+export type SelectGiven<F extends FLD, A extends ALS, S extends string> =
+  | SelectGivenAll
+  | Array<SelectGivenItem<F, A, S>>
+  | SelectGivenMap<F, A, S>;
 
-export type SelectGivenRaw = FieldRaw & FieldAs;
+export type SelectGivenMap<F extends FLD, A extends ALS, S extends string> = {
+  [field in QF<F, A, S>]?: FieldAsValue | null;
+};
 
-export interface Select<K extends string> {
+export type SelectGivenItem<F extends FLD, A extends ALS, S extends string> =
+  | QF<F, A, S>
+  | SelectGivenItemTuple<F, A, S>
+  | SelectGivenItemField<F, A, S>
+  | SelectGivenItemRaw;
+
+export type SelectGivenItemTuple<F extends FLD, A extends ALS, S extends string> = [
+  QF<F, A, S>,
+  FieldAsValue,
+];
+
+export type SelectGivenItemField<F extends FLD, A extends ALS, S extends string> = FieldRegular<
+  F,
+  A,
+  S
+> &
+  FieldAs;
+
+export type SelectGivenItemRaw = FieldRaw & FieldAs;
+
+export interface SelectFinal<F extends FLD, A extends ALS, S extends string> {
   all?: true;
-  fields?: Array<SelectItemRegular<K> | SelectItemRaw>;
+  fields?: Array<SelectFinalItem<F, A, S>>;
 }
 
-export type SelectItemRegular<K extends string> = FieldRegular<K> & FieldAs;
-export type SelectItemRaw = FieldRaw & FieldAs;
+export type SelectFinalItem<F extends FLD, A extends ALS, S extends string> =
+  | SelectFinalItemField<F, A, S>
+  | SelectFinalItemRaw;
+
+export type SelectFinalItemField<F extends FLD, A extends ALS, S extends string> = FieldRegular<
+  F,
+  A,
+  S
+> &
+  FieldAs;
+export type SelectFinalItemRaw = FieldRaw & FieldAs;
 // endregion select
 
 // region where
-export type WhereValue<K extends string> = {
-  [P in K]: unknown;
+export type WhereGiven<F extends FLD, A extends ALS, S extends string> =
+  | WhereGivenMap<F, A, S>
+  | Array<WhereGivenItem<F, A, S>>;
+
+export type WhereValue = unknown;
+
+export type WhereGivenMap<F extends FLD, A extends ALS, S extends string> = {
+  [field in QF<F, A, S>]?: WhereValue;
 };
-export type WhereAny<K extends string> =
-  | WhereValue<K>
-  | Array<WhereGiven<K> | WhereGivenRaw | [K, unknown]>;
 
 export interface WhereGivenCondition {
-  op: string | OperationType;
-  value?: unknown;
+  op?: string | OperationType;
+  value?: WhereValue;
+}
+export interface WhereGivenOr<F extends FLD, A extends ALS, S extends string> {
+  $or: WhereGiven<F, A, S>;
+}
+export interface WhereGivenAnd<F extends FLD, A extends ALS, S extends string> {
+  $and: WhereGiven<F, A, S>;
+}
+export type WhereGivenItem<F extends FLD, A extends ALS, S extends string> =
+  | WhereGivenOr<F, A, S>
+  | WhereGivenAnd<F, A, S>
+  | WhereGivenItemField<F, A, S>
+  | WhereGivenItemRaw
+  | WhereGivenItemTuple<F, A, S>;
+
+export type WhereGivenItemField<F extends FLD, A extends ALS, S extends string> = FieldRegular<
+  F,
+  A,
+  S
+> &
+  WhereGivenCondition;
+
+export type WhereGivenItemRaw = FieldRaw & WhereGivenCondition;
+
+export type WhereGivenItemTuple<F extends FLD, A extends ALS, S extends string> = [
+  QF<F, A, S>,
+  WhereValue,
+];
+
+export interface WhereFinalItemOr<F extends FLD, A extends ALS, S extends string> {
+  $or: WhereFinal<F, A, S>;
+}
+export interface WhereFinalItemAnd<F extends FLD, A extends ALS, S extends string> {
+  $and: WhereFinal<F, A, S>;
 }
 
-export type WhereGiven<K extends string> = FieldRegular<K> & WhereGivenCondition;
+export type WhereFinal<F extends FLD, A extends ALS, S extends string> = Array<
+  WhereFinalItem<F, A, S>
+>;
+export type WhereFinalItem<F extends FLD, A extends ALS, S extends string> =
+  | WhereFinalItemOr<F, A, S>
+  | WhereFinalItemAnd<F, A, S>
+  | WhereFinalItemRegular<F, A, S>
+  | WhereFinalItemRaw;
 
-export type WhereGivenRaw = FieldRaw & WhereGivenCondition;
+export type WhereFinalItemRegular<F extends FLD, A extends ALS, S extends string> = FieldRegular<
+  F,
+  A,
+  S
+> &
+  WhereFinalCondition;
+export type WhereFinalItemRaw = FieldRaw & WhereFinalCondition;
 
-export type Where<K extends string> = Array<WhereItemRegular<K> | WhereItemRaw>;
-
-export type WhereItemRegular<K extends string> = FieldRegular<K> & WhereCondition;
-export type WhereItemRaw = FieldRaw & WhereCondition;
-
-export interface WhereCondition {
+export interface WhereFinalCondition {
   fullRaw?: true;
   op?: OperationType;
-  value?: unknown;
+  value?: Array<WhereValue>;
 }
 // endregion where

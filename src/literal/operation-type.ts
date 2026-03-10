@@ -25,11 +25,8 @@ const literals = [
   "matches",
   "!matches",
 
-  "contains", // left includes right
-  "!contains", // left does not include right
-
-  "contained", // right includes left
-  "!contained", // right does not include left
+  "contains",
+  "!contains",
 
   // boolean
   "true",

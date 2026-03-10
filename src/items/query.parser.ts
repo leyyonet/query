@@ -1,45 +1,172 @@
-import { isEmpty, isFilledObj, isText, setFqn, testCase } from "@leyyo/common";
+import {
+  BasicType,
+  isEmpty,
+  isFilledArr,
+  isFilledObj,
+  isObj,
+  isText,
+  Mutable,
+  setFqn,
+  testCase,
+} from "@leyyo/common";
 import { OperationType, OperationTypeItems, OperationTypeMap } from "../literal/index.js";
 import {
   FieldAs,
+  FieldAsValue,
   FieldRaw,
+  FieldRawValue,
   FieldRegular,
-  GroupBy,
-  GroupByAny,
-  GroupByGivenRaw,
-  GroupByGivenRegular,
-  OrderBy,
-  OrderByAny,
+  GroupByFinal,
+  GroupByGiven,
+  GroupByGivenItem,
+  OrderByFinal,
   OrderByGiven,
   OrderByGivenAsc,
-  OrderByGivenRaw,
-  PaginationAny,
-  PaginationLimit,
-  PaginationPage,
-  QueryAny,
+  OrderByGivenItem,
+  PaginationFinal,
+  PaginationGiven,
+  PaginationGivenLimit,
+  PaginationGivenPage,
+  QueryField,
+  QueryFinal,
+  QueryGiven,
+  QueryGivenExtended,
   QueryParserLike,
-  QueryRegular,
-  Select,
-  SelectAny,
+  QueryShortcut,
+  SelectFinal,
   SelectGiven,
-  SelectGivenRaw,
-  Where,
-  WhereAny,
+  SelectGivenItem,
+  SelectGivenItemTuple,
+  WhereFinal,
+  WhereFinalCondition,
+  WhereFinalItem,
   WhereGiven,
+  WhereGivenAnd,
   WhereGivenCondition,
-  WhereGivenRaw,
+  WhereGivenItem,
+  WhereGivenItemTuple,
+  WhereGivenOr,
+  WhereValue,
 } from "../type.js";
 import { InvalidQueryValueError } from "../error/index.js";
 import { PCK } from "../internal.js";
 
 class QueryParser implements QueryParserLike {
   // region private
-  private _asc(value: unknown, path: string): boolean {
+
+  private _isField<F extends string, A extends string | symbol, S extends string>(
+    value: unknown,
+  ): boolean {
+    return isText((value as FieldRegular<F, A, S>)?.field);
+  }
+
+  private _getFieldOrShortcut<F extends string, A extends string | symbol, S extends string>(
+    query: QueryFinal<F, A, S>,
+    value: unknown,
+    path: string,
+  ): [QueryField<F, A, S>, FieldRawValue, S] {
+    if (isText(value)) {
+      const str = value as QueryField<F, A, S>;
+      if (query.hasAny) {
+        if (query.availableFields.includes(str)) {
+          return [str, undefined, undefined];
+        }
+        if (query.shortcut[str as S] !== undefined) {
+          return [undefined, query.shortcut[str as S], str as S];
+        }
+        if (query.availableFields.length > 0) {
+          throw new InvalidQueryValueError(`Field is not allowed`, {
+            case: testCase(PCK, "xxx"),
+            path,
+            expected: [...query.availableFields, ...Object.keys(query.shortcut)],
+            type: typeof value,
+            value,
+          });
+        }
+      }
+      return [str, undefined, undefined];
+    }
+    throw new InvalidQueryValueError(`Field should be valid text`, {
+      case: testCase(PCK, "invalid-field"),
+      path,
+      expected: "string",
+      type: typeof value,
+      value,
+    });
+  }
+
+  private _getFieldOrRaw<F extends string, A extends string | symbol, S extends string>(
+    query: QueryFinal<F, A, S>,
+    item: unknown,
+    path: string,
+  ): [QueryField<F, A, S>, FieldRawValue, S] {
+    let field: QueryField<F, A, S>;
+    let raw2: FieldRawValue;
+    let shortcut: S;
+
+    if (this._isField(item)) {
+      [field, raw2, shortcut] = this._getFieldOrShortcut(
+        query,
+        (item as FieldRegular<F, A, S>).field,
+        `${path}.field`,
+      );
+    }
+    let raw: FieldRawValue = raw2;
+    if (this._isRaw(item)) {
+      raw = (item as FieldRaw).raw;
+      if (raw2 && raw2 !== raw) {
+        throw new InvalidQueryValueError(`shortcut raw or raw are different`, {
+          case: testCase(PCK, "xxx"),
+          path,
+        });
+      }
+      const index = Object.values(query.shortcut).indexOf(raw);
+      if (index >= 0) {
+        shortcut = Object.keys(query.shortcut)[index] as S;
+        if (shortcut) {
+          // todo warning
+        }
+      }
+    }
+
+    this._fieldXorRaw(field, raw, `${path}.field`);
+
+    return [field, raw, shortcut];
+  }
+
+  private _isRaw(value: unknown): boolean {
+    return isText((value as FieldRaw)?.raw);
+  }
+
+  private _getAsInObject(value: unknown, path: string): FieldAsValue {
+    return this._getAsDirect((value as FieldAs)?.as, path);
+  }
+
+  private _getAsDirect(value: unknown, path: string): FieldAsValue {
+    if (isEmpty(value)) {
+      return undefined;
+    } else if (isText(value)) {
+      return value as FieldAsValue;
+    }
+    throw new InvalidQueryValueError(`As command should be valid text`, {
+      case: testCase(PCK, "invalid-as"),
+      path,
+      expected: "string",
+      type: typeof value,
+      value,
+    });
+  }
+
+  private _getAscInObject(value: unknown, path: string): boolean {
+    return this._getAscDirect((value as OrderByGivenAsc)?.asc, path);
+  }
+
+  private _getAscDirect(value: unknown, path: string): boolean {
     if (isEmpty(value)) {
       return true;
     }
     if (typeof value === "boolean") {
-      return value as boolean;
+      return value;
     } else if (isText(value)) {
       if ((value as string).toLowerCase() === "asc") {
         return true;
@@ -48,7 +175,7 @@ class QueryParser implements QueryParserLike {
       }
     }
     throw new InvalidQueryValueError(`Order type should be valid`, {
-      case: testCase(PCK, 110),
+      case: testCase(PCK, "invalid-order-type"),
       path,
       expected: ["true", "false", "asc", "desc"],
       type: typeof value,
@@ -56,44 +183,6 @@ class QueryParser implements QueryParserLike {
     });
   }
 
-  private _field<K extends string>(value: unknown, path: string): K {
-    if (isText(value)) {
-      return value as K;
-    }
-    throw new InvalidQueryValueError(`Field should be valid text`, {
-      case: testCase(PCK, 100),
-      path,
-      expected: "string",
-      type: typeof value,
-      value,
-    });
-  }
-  private _raw(value: unknown, path: string): string {
-    if (isText(value)) {
-      return value as string;
-    }
-    throw new InvalidQueryValueError(`Raw data should be valid text`, {
-      case: testCase(PCK, 101),
-      path,
-      expected: "string",
-      type: typeof value,
-      value,
-    });
-  }
-  private _as(value: unknown, path: string): string {
-    if (isEmpty(value)) {
-      return undefined;
-    } else if (isText(value)) {
-      return value as string;
-    }
-    throw new InvalidQueryValueError(`As command should be valid text`, {
-      case: testCase(PCK, 120),
-      path,
-      expected: "string",
-      type: typeof value,
-      value,
-    });
-  }
   private _operation(value: unknown, path: string): OperationType {
     if (isEmpty(value)) {
       return "eq";
@@ -107,14 +196,15 @@ class QueryParser implements QueryParserLike {
       }
     }
     throw new InvalidQueryValueError(`Operation command should be valid`, {
-      case: testCase(PCK, 130),
+      case: testCase(PCK, "invalid-operation"),
       path,
       expected: "@see operations",
       type: typeof value,
       value,
     });
   }
-  private _value(value: unknown, path: string): Array<unknown> {
+
+  private _value(value: unknown, path: string): Array<WhereValue> {
     if (value === undefined) {
       return [];
     }
@@ -122,27 +212,27 @@ class QueryParser implements QueryParserLike {
       case "string":
         if (!isText(value)) {
           throw new InvalidQueryValueError(`Value should not be empty or spaced string`, {
-            case: testCase(PCK, 131),
+            case: testCase(PCK, "invalid-value"),
             path,
             expected: "string",
             type: typeof value,
             value,
           });
         }
-        return [value];
+        return [value] as WhereValue[];
       case "number":
       case "boolean":
-        return [value];
+        return [value] as WhereValue[];
       case "object":
         if (value === null) {
-          return [null];
+          return [null] as WhereValue[];
         }
         if (Array.isArray(value)) {
           let index = 0;
           for (const item of value) {
             if (!isText(item) && typeof value !== "number" && typeof value !== "boolean") {
               throw new InvalidQueryValueError(`Value should be string, number or boolean`, {
-                case: testCase(PCK, 132),
+                case: testCase(PCK, "invalid-value-type"),
                 path,
                 expected: ["string", "number", "boolean"],
                 type: typeof item,
@@ -152,51 +242,64 @@ class QueryParser implements QueryParserLike {
             }
             index++;
           }
-          return value;
+          return value as WhereValue[];
         }
         break;
     }
     throw new InvalidQueryValueError(`Value should be valid`, {
-      case: testCase(PCK, 133),
+      case: testCase(PCK, "invalid-value"),
       path,
       expected: ["string", "number", "boolean", "array", "number"],
       type: typeof value,
       value,
     });
   }
-  private _num(value: unknown, path: string, min: number): number {
+
+  private _num(value: unknown, path: string, min: number, max: number, def?: number): number {
     if (isEmpty(value)) {
-      return undefined;
-    } else if (Number.isSafeInteger(value)) {
-      if ((value as number) >= min) {
-        return value as number;
+      if (Number.isSafeInteger(def)) {
+        return def;
       }
-      throw new InvalidQueryValueError(`It should be ${min} as minimum`, {
-        case: testCase(PCK, 102),
-        path,
-        min,
-        value,
-      });
+    } else if (Number.isSafeInteger(value)) {
+      const int = value as number;
+      if (int < min) {
+        throw new InvalidQueryValueError(`It should be ${min} as minimum`, {
+          case: testCase(PCK, "min-number"),
+          path,
+          min,
+          value,
+        });
+      }
+      if (int > max) {
+        throw new InvalidQueryValueError(`It should be ${max} as maximum`, {
+          case: testCase(PCK, "xxx"),
+          path,
+          max,
+          value,
+        });
+      }
+      return int;
     }
     throw new InvalidQueryValueError(`Value should be numeric`, {
-      case: testCase(PCK, 103),
+      case: testCase(PCK, "invalid-number"),
       path,
       expected: "number",
       type: typeof value,
       value,
     });
   }
+
   private _fieldXorRaw(field: unknown, raw: unknown, path: string): void {
     if (!raw && !field) {
       throw new InvalidQueryValueError(`Field or raw are not provided, one of them should be`, {
-        case: testCase(PCK, 104),
+        case: testCase(PCK, "no-raw-no-field"),
         path,
       });
     } else if (raw && field) {
       throw new InvalidQueryValueError(
         `Field and raw are provided together, Field or raw are not provided, only one of them should be`,
         {
-          case: testCase(PCK, 105),
+          case: testCase(PCK, "both-raw-field"),
           path,
           raw,
           field: field as string,
@@ -204,76 +307,89 @@ class QueryParser implements QueryParserLike {
       );
     }
   }
+
   // endregion private
 
   // region parts
-  protected _select<K extends string>(
-    given: SelectAny<K>,
-    _availableFields: Array<K | string>,
-    _name: string,
-  ): Select<K> {
+  protected _select<F extends string, A extends string | symbol, S extends string>(
+    query: QueryFinal<F, A, S>,
+    given: SelectGiven<F, A, S>,
+    path: string,
+  ): SelectFinal<F, A, S> {
     if (isEmpty(given)) {
       return { all: true };
     }
     // Cases:
-    // 1 - '*'
-    // 2 - Array<K | [K, string] | SelectGiven<K> | SelectGivenRaw>
+    // 1 - SelectGivenAll
+    // 2 - Array<SelectGivenItem<F,  A>>
+    // 2A - QF<F,  A>
+    // 2B - SelectGivenItemTuple<F, A, S>
+    // 2C - SelectGivenItemField<F, A, S>
+    // 2D - SelectGivenItemRaw;
+    // 3 - SelectGivenMap<F, A, S>
 
-    // case 1: string as K
+    // 1 - SelectGivenAll
     if (given === "*") {
       return { all: true };
     }
 
-    const newSelect: Select<K> = { fields: [] };
+    const newSelect: SelectFinal<F, A, S> = { fields: [] };
 
-    // case 2: Array<K | [K, string] | SelectGiven<K> | SelectGivenRaw>
+    // 2 - Array<SelectGivenItem<F,  A>>
     if (Array.isArray(given)) {
       if (given.length < 1) {
         return { all: true };
       }
-      const arr = given as Array<K | [K, string] | SelectGiven<K> | SelectGivenRaw>;
+      const arr = given as Array<SelectGivenItem<F, A, S>>;
       arr.forEach((item, index) => {
-        // Case 2A: K
+        // 2A - QF<F,  A>
         if (isText(item)) {
-          newSelect.fields.push({
-            field: item as K,
-          });
+          const [field, raw] = this._getFieldOrShortcut(query, item, `${path}[${index}]`);
+          if (raw) {
+            throw new InvalidQueryValueError(`As should be used for raw`, {
+              case: testCase(PCK, "xxx"),
+              path: `${path}[${index}]`,
+              expected: ["string"],
+              index,
+            });
+          }
+          newSelect.fields.push({ field, raw });
         }
-        // Case 2B: [K, string]
+        // 2B - SelectGivenItemTuple<F, A, S>
         else if (Array.isArray(item)) {
-          let [field, as] = item as [K, string];
-          field = this._field(field, `select[${index}][0]`);
-          as = this._as(as, `select[${index}][1]`);
-          newSelect.fields.push({ field, as });
+          const tuple = item as SelectGivenItemTuple<F, A, S>;
+          const [field, raw] = this._getFieldOrShortcut(query, tuple[0], `${path}[${index}][0]`);
+          const as = this._getAsDirect(tuple[1], `${path}[${index}][1]`);
+          if (raw && !as) {
+            throw new InvalidQueryValueError(`As should be used for raw`, {
+              case: testCase(PCK, "xxx"),
+              path: `${path}[${index}][1]`,
+              expected: ["string"],
+              index,
+            });
+          }
+          newSelect.fields.push({ field, raw, as });
         }
-        // Case 2C: SelectGiven<K> | SelectGivenRaw
+        // 2C - SelectGivenItemField<F, A, S>
+        // 2D - SelectGivenItemRaw;
         else if (isFilledObj(item)) {
-          let field: K;
-          let raw: string;
-
-          const obj = item as SelectGiven<K> | SelectGivenRaw;
-          if (!isEmpty((obj as FieldRaw).raw)) {
-            raw = this._raw((obj as FieldRaw).raw, `select[${index}].raw`);
+          const [field, raw] = this._getFieldOrRaw<F, A, S>(query, item, `${path}[${index}]`);
+          const as = this._getAsInObject(item, `${path}[${index}].as`);
+          if (raw && !as) {
+            throw new InvalidQueryValueError(`As should be used for raw`, {
+              case: testCase(PCK, "xxx"),
+              path: `${path}[${index}].as`,
+              expected: ["string"],
+              index,
+            });
           }
-          if (!isEmpty((obj as FieldRegular<K>).field)) {
-            field = this._field((obj as FieldRegular<K>).field, `select[${index}].field`);
-          }
-
-          this._fieldXorRaw(field, raw, `select[${index}].field`);
-
-          const as = this._as((obj as FieldAs).as, `select[${index}].as`);
-
-          if (field) {
-            newSelect.fields.push({ field, as });
-          } else {
-            newSelect.fields.push({ raw, as });
-          }
+          newSelect.fields.push({ field, raw, as });
         }
         // other
         else {
           throw new InvalidQueryValueError(`Invalid select item`, {
-            case: testCase(PCK, 121),
-            path: `select[${index}]`,
+            case: testCase(PCK, "invalid-select-item"),
+            path: `${path}[${index}]`,
             expected: ["string", "array", "object"],
             type: typeof item,
             value: item,
@@ -281,13 +397,31 @@ class QueryParser implements QueryParserLike {
           });
         }
       });
+    } else if (isObj(given)) {
+      if (!isFilledObj(given)) {
+        return { all: true };
+      }
+      let index = 0;
+      for (const [k, v] of Object.entries(given)) {
+        const [field, raw] = this._getFieldOrShortcut(query, k, `${path}(#${index})`);
+        const as = this._getAsDirect(v, `${path}.${k}`);
+        if (raw && !as) {
+          throw new InvalidQueryValueError(`As should be used for raw`, {
+            case: testCase(PCK, "xxx"),
+            path: `${path}.${k}`,
+            expected: ["string"],
+            index,
+          });
+        }
+        newSelect.fields.push({ field, raw, as });
+        index++;
+      }
     }
-
     // case: other
     else {
       throw new InvalidQueryValueError(`Invalid select block`, {
-        case: testCase(PCK, 122),
-        path: "select",
+        case: testCase(PCK, "invalid-select-block"),
+        path,
         expected: ["*", "array"],
         type: typeof given,
         value: given,
@@ -296,77 +430,261 @@ class QueryParser implements QueryParserLike {
     return newSelect;
   }
 
-  protected _where<K extends string>(
-    scope: "where" | "having",
-    given: WhereAny<K>,
-    _availableFields: Array<K | string>,
-    _name: string,
-  ): Where<K> {
+  private _invalidValueLength(expected: number, values: Array<WhereValue>, path: string): void {
+    if (values.length !== 1) {
+      throw new InvalidQueryValueError(`Value length is not expected`, {
+        case: testCase(PCK, "xxx"),
+        path: `${path}]`,
+        expectedLength: expected,
+        actualLength: values.length,
+        value: values,
+      });
+    }
+  }
+  private _invalidValueType(
+    expected: Array<BasicType>,
+    values: Array<WhereValue>,
+    path: string,
+  ): void {
+    values.forEach((value, index) => {
+      const type = typeof value;
+      if (!expected.includes(type)) {
+        throw new InvalidQueryValueError(`Value type is not expected`, {
+          case: testCase(PCK, "xxx"),
+          path: `${path}]`,
+          expected: new Set(expected),
+          type,
+          value,
+          index,
+        });
+      }
+    });
+  }
+
+  private _checkWhereValue<F extends string, A extends string | symbol, S extends string>(
+    holder: WhereFinal<F, A, S>,
+    item: WhereFinalItem<F, A, S>,
+    path: string,
+  ): void {
+    const cond = item as WhereFinalCondition;
+    if (cond.fullRaw) {
+      holder.push(item);
+      return;
+    }
+    switch (cond.op) {
+      case "eq": // string, number, boolean
+      case "ne": // string, number, boolean
+        cond.value = cond.value.filter((v) => !isEmpty(v));
+        this._invalidValueLength(1, cond.value, path);
+        this._invalidValueType(["string", "number", "boolean"], cond.value, path);
+        holder.push(item);
+        return;
+      case "gt": // string, number
+      case "gte": // string, number
+      case "lt": // string, number
+      case "lte": // string, number
+        cond.value = cond.value.filter((v) => !isEmpty(v));
+        this._invalidValueLength(1, cond.value, path);
+        this._invalidValueType(["string", "number"], cond.value, path);
+        holder.push(item);
+        return;
+      case "exists": // json object
+      case "!exists": // json object
+        cond.value = cond.value.filter((v) => !isEmpty(v));
+        this._invalidValueLength(1, cond.value, path);
+        this._invalidValueType(["string"], cond.value, path);
+        holder.push(item);
+        return;
+      case "null": // any
+      case "!null": // any
+      case "missing": // any
+      case "!missing": // any
+        cond.value = cond.value.filter((v) => !isEmpty(v));
+        this._invalidValueLength(0, cond.value, path);
+        holder.push(item);
+        return;
+      case "true": // boolean
+      case "false": // boolean
+        cond.value = cond.value.filter((v) => !isEmpty(v));
+        this._invalidValueLength(0, cond.value, path);
+        holder.push(item);
+        return;
+      case "between": // string, number
+      case "!between": // string, number
+        this._invalidValueLength(2, cond.value, path);
+        if (!isEmpty(cond.value[0])) {
+          if (!isEmpty(cond.value[1])) {
+            this._invalidValueType(["string", "number"], cond.value, path);
+            holder.push(item as WhereFinalItem<F, A, S>);
+            return;
+          } else {
+            cond.op = "gte";
+            cond.value = [cond.value[0]];
+            this._invalidValueType(["string", "number"], cond.value, path);
+            holder.push(item as WhereFinalItem<F, A, S>);
+            return;
+          }
+        } else if (!isEmpty(cond.value[1])) {
+          cond.op = "lte";
+          cond.value = [cond.value[1]];
+          this._invalidValueType(["string", "number"], cond.value, path);
+          holder.push(item as WhereFinalItem<F, A, S>);
+          return;
+        }
+        // both of them is empty
+        this._invalidValueLength(2, cond.value, path);
+        holder.push(item);
+        return;
+      case "in": // string, number, boolean
+      case "!in": // string, number, boolean
+      case "includes": // string, number, boolean
+      case "!includes": // string, number, boolean
+      case "intersects": // string, number, boolean
+      case "!intersects": // string, number, boolean
+        if (cond.value.length < 1) {
+          this._invalidValueLength(1, cond.value, path);
+        }
+        this._invalidValueType(["string", "number", "boolean"], cond.value, path);
+        holder.push(item);
+        return;
+      case "starts": // string
+      case "!starts": // string
+      case "ends": // string
+      case "!ends": // string
+      case "contains": // string
+      case "!contains": // string
+        this._invalidValueLength(1, cond.value, path);
+        this._invalidValueType(["string"], cond.value, path);
+        holder.push(item);
+        return;
+      case "matches": // string
+      case "!matches": // string
+        this._invalidValueLength(1, cond.value, path);
+        if (!(cond.value[0] instanceof RegExp)) {
+          this._invalidValueType(["string"], cond.value, path);
+          cond.value[0] = new RegExp(cond.value[0] as string, "g");
+        }
+        holder.push(item);
+        return;
+      default:
+        holder.push(item);
+        return;
+    }
+  }
+  protected _where<F extends string, A extends string | symbol, S extends string>(
+    query: QueryFinal<F, A, S>,
+    given: WhereGiven<F, A, S>,
+    path: string,
+    inAnd: boolean,
+  ): WhereFinal<F, A, S> {
     if (isEmpty(given)) {
       return [];
     }
     // Cases:
-    // 1 - WhereValue<K>
-    // 2 - Array<WhereGiven<K>|WhereGivenRaw|[K, unknown]>
-    const newWhere: Where<K> = [];
+    // 1 - WhereGivenMap<F, A, S>
+    // 2 - Array<WhereGivenItem<F, A, S>>;
+    // 2A - WhereGivenOr<F, A, S>
+    // 2B - WhereGivenItemField<F, A, S>
+    // 2C - WhereGivenItemRaw
+    // 2D - WhereGivenItemTuple<F, A, S>
 
-    // case 1: WhereValue<K>
-    if (isFilledObj(given)) {
+    const newWhere: WhereFinal<F, A, S> = [];
+
+    // 1 - WhereGivenMap<F, A, S>
+    if (isObj(given)) {
+      if (!isFilledObj(given)) {
+        return [];
+      }
       let index = 0;
       for (const [k, v] of Object.entries(given)) {
-        const field = this._field(k, `${scope}(key=${index})`) as K;
-        const value = this._value(v, `${scope}.${field}`);
-        newWhere.push({ field, value, op: "eq" });
+        const [field, raw] = this._getFieldOrShortcut(query, k, `${path}(#${index})`);
+        const value = this._value(v, `${path}.${field}`);
+        this._checkWhereValue(newWhere, { field, raw, value, op: "eq" }, path);
         index++;
       }
+      return newWhere;
     }
 
-    // case 2: array as Array<WhereGiven<K>|WhereGivenRaw|[K, unknown]>
+    // 2 - Array<WhereGivenItem<F, A, S>>
     else if (Array.isArray(given)) {
       if (given.length < 1) {
         return [];
       }
-      const arr = given as Array<WhereGiven<K> | WhereGivenRaw | [K, unknown]>;
+      const arr = given as Array<WhereGivenItem<F, A, S>>;
       arr.forEach((item, index) => {
-        // Case 2A: WhereGiven<K>|WhereGivenRaw
+        // 2A - WhereGivenOr<F, A, S>
+        // 2B - WhereGivenItemField<F, A, S>
+        // 2C - WhereGivenItemRaw
         if (isFilledObj(item)) {
-          let field: K;
-          let raw: string;
-          let fullRaw: true;
-
-          const obj = item as WhereGiven<K> | WhereGivenRaw;
-          if (!isEmpty((obj as FieldRaw).raw)) {
-            raw = this._raw((obj as OrderByGivenRaw).raw, `${scope}[${index}].raw`);
+          // 2A - WhereGivenOr<F, A, S>
+          if ((item as WhereGivenOr<F, A, S>).$or !== undefined) {
+            if (!inAnd) {
+              throw new InvalidQueryValueError(`Nested recurring $or usage`, {
+                case: testCase(PCK, "xxx"),
+                path: `${path}[${index}]`,
+              });
+            }
+            this._checkWhereValue(
+              newWhere,
+              {
+                $or: this._where<F, A, S>(
+                  query,
+                  (item as WhereGivenOr<F, A, S>).$or,
+                  `${path}[${index}].$or`,
+                  false,
+                ),
+              },
+              path,
+            );
+          } else if ((item as WhereGivenAnd<F, A, S>).$and !== undefined) {
+            if (inAnd) {
+              throw new InvalidQueryValueError(`Nested recurring $and usage`, {
+                case: testCase(PCK, "xxx"),
+                path: `${path}[${index}]`,
+              });
+            }
+            this._checkWhereValue(
+              newWhere,
+              {
+                $and: this._where<F, A, S>(
+                  query,
+                  (item as WhereGivenAnd<F, A, S>).$and,
+                  `${path}[${index}].$and`,
+                  true,
+                ),
+              },
+              path,
+            );
           }
-          if (!isEmpty((obj as FieldRegular<K>).field)) {
-            field = this._field((obj as FieldRegular<K>).field, `${scope}[${index}].field`);
-          }
 
-          this._fieldXorRaw(field, raw, `${scope}[${index}].field`);
-
-          const whereItem = obj as WhereGivenCondition;
-          if (raw && isEmpty(whereItem.op) && isEmpty(whereItem.value)) {
-            fullRaw = true;
-          }
-          const op = this._operation(whereItem.op, `${scope}[${index}].op`);
-          const value: Array<unknown> = this._value(whereItem.value, `${scope}[${index}].value`);
-
-          if (field) {
-            newWhere.push({ field, op, value });
-          } else {
-            newWhere.push({ raw, op, value, fullRaw });
+          // 2B - WhereGivenItemField<F, A, S>
+          // 2C - WhereGivenItemRaw
+          else {
+            const [field, raw] = this._getFieldOrRaw<F, A, S>(query, item, `${path}[${index}]`);
+            let fullRaw: true;
+            let op: OperationType;
+            let value: Array<WhereValue>;
+            const whereItem = item as WhereGivenCondition;
+            if (raw && isEmpty(whereItem.op) && isEmpty(whereItem.value)) {
+              fullRaw = true;
+            } else {
+              op = this._operation(whereItem.op, `${path}[${index}].op`);
+              value = this._value(whereItem.value, `${path}[${index}].value`);
+            }
+            this._checkWhereValue(newWhere, { field, op, value, raw, fullRaw }, path);
           }
         }
 
-        // Case 2B: |[K, unknown]
+        // 2D - WhereGivenItemTuple<F, A, S>
         else if (Array.isArray(item) && item.length > 0) {
-          const field: K = this._field(item[0], `${scope}[${index}][0]`);
-          const value: Array<unknown> = this._value(item[1], `${scope}[${index}][1]`);
-          newWhere.push({ field, value, op: "eq" });
+          const tuple = item as WhereGivenItemTuple<F, A, S>;
+          const [field, raw] = this._getFieldOrShortcut(query, tuple[0], `${path}[${index}][0]`);
+          const value = this._value(item[1], `${path}[${index}][1]`);
+          this._checkWhereValue(newWhere, { field, raw, value, op: "eq" }, path);
         } else {
-          throw new InvalidQueryValueError(`Invalid ${scope} item`, {
-            case: testCase(PCK, scope === "where" ? 134 : 144),
-            path: `${scope}[${index}]`,
+          throw new InvalidQueryValueError(`Invalid condition item`, {
+            case: testCase(PCK, "invalid-where-item"),
+            path: `${path}[${index}]`,
             expected: ["object", "array"],
             type: typeof item,
             value: item,
@@ -377,9 +695,9 @@ class QueryParser implements QueryParserLike {
     }
     // case: other
     else {
-      throw new InvalidQueryValueError(`Invalid ${scope} block`, {
-        case: testCase(PCK, scope === "where" ? 135 : 145),
-        path: scope,
+      throw new InvalidQueryValueError(`Invalid condition block`, {
+        case: testCase(PCK, "invalid-where-block"),
+        path,
         expected: ["object", "array"],
         type: typeof given,
         value: given,
@@ -388,54 +706,46 @@ class QueryParser implements QueryParserLike {
     return newWhere;
   }
 
-  protected _groupBy<K extends string>(
-    given: GroupByAny<K>,
-    _availableFields: Array<K | string>,
-    _name: string,
-  ): GroupBy<K> {
+  protected _groupBy<F extends string, A extends string | symbol, S extends string>(
+    query: QueryFinal<F, A, S>,
+    given: GroupByGiven<F, A, S>,
+    path: string,
+  ): GroupByFinal<F, A, S> {
     if (isEmpty(given)) {
       return [];
     }
     // Cases:
-    // 1 - Array<K | GroupByGivenRegular<K> | GroupByGivenRaw>
-    const newGroup: GroupBy<K> = [];
+    // 1 - Array<GroupByGivenItem<F, A, S>>
+    // 1A - QF<F, A, S>
+    // 1B - GroupByGivenItemRegular<F, A, S>
+    // 1C - GroupByGivenItemRaw
+    const newGroup: GroupByFinal<F, A, S> = [];
 
-    // case 1: Array<K | GroupByGivenRegular<K> | GroupByGivenRaw>
+    // 1 - Array<GroupByGivenItem<F, A, S>>
     if (Array.isArray(given)) {
       if (given.length < 1) {
         return [];
       }
-      const arr = given as Array<K | GroupByGivenRegular<K> | GroupByGivenRaw>;
+      const arr = given as Array<GroupByGivenItem<F, A, S>>;
       arr.forEach((item, index) => {
-        // Case 2A: GroupByGivenRegular<K> | GroupByGivenRaw
-        if (isFilledObj(item)) {
-          let field: K;
-          let raw: string;
-
-          const obj = item as GroupByGivenRegular<K> | GroupByGivenRaw;
-          if (!isEmpty((obj as FieldRaw).raw)) {
-            raw = this._raw((obj as FieldRaw).raw, `groupBy[${index}].raw`);
-          }
-          if (!isEmpty((obj as FieldRegular<K>).field)) {
-            field = this._field((obj as FieldRegular<K>).field, `groupBy[${index}].field`);
-          }
-
-          this._fieldXorRaw(field, raw, `groupBy[${index}].field`);
-
+        // 1A - QF<F, A, S>
+        if (isText(item)) {
+          const [field, raw] = this._getFieldOrShortcut(query, item, `${path}[${index}]`);
+          newGroup.push({ field, raw });
+        }
+        // 1B - GroupByGivenItemRegular<F, A, S>
+        // 1C - GroupByGivenItemRaw
+        else if (isFilledObj(item)) {
+          const [field, raw] = this._getFieldOrRaw<F, A, S>(query, item, `${path}[${index}]`);
           if (field) {
             newGroup.push({ field });
           } else {
             newGroup.push({ raw });
           }
-        }
-
-        // Case 2B: K
-        else if (isText(item)) {
-          newGroup.push({ field: item as K });
         } else {
           throw new InvalidQueryValueError(`Invalid group by item`, {
-            case: testCase(PCK, 150),
-            path: `groupBy[${index}]`,
+            case: testCase(PCK, "invalid-group-item"),
+            path: `${path}[${index}]`,
             expected: ["string", "object"],
             type: typeof item,
             value: item,
@@ -447,8 +757,8 @@ class QueryParser implements QueryParserLike {
     // case: other
     else {
       throw new InvalidQueryValueError(`Invalid group by block`, {
-        case: testCase(PCK, 151),
-        path: "groupBy",
+        case: testCase(PCK, "invalid-group-block"),
+        path,
         expected: ["array"],
         type: typeof given,
         value: given,
@@ -457,48 +767,47 @@ class QueryParser implements QueryParserLike {
     return newGroup;
   }
 
-  protected _orderBy<K extends string>(
-    given: OrderByAny<K>,
-    _availableFields: Array<K | string>,
-    _name: string,
-  ): OrderBy<K> {
+  protected _orderBy<F extends string, A extends string | symbol, S extends string>(
+    query: QueryFinal<F, A, S>,
+    given: OrderByGiven<F, A, S>,
+    path: string,
+  ): OrderByFinal<F, A, S> {
     if (isEmpty(given)) {
       return [];
     }
     // Cases:
-    // 1 - K
-    // 2 - Array<OrderByGiven<K>|K|OrderByGivenRaw>
-    // 3 - OrderByValue<K>
-    const newOrder: OrderBy<K> = [];
+    // 1 - QF<F, A, S>
+    // 2 - Array<OrderByGivenItem<F, A, S>>
+    // 2A - QF<F, A, S>
+    // 2B - OrderByGivenItemField<F, A, S>
+    // 2C - OrderByGivenItemRaw
+    // 3 - OrderByGivenMap<F, A, S>
+    const newOrder: OrderByFinal<F, A, S> = [];
 
-    // case 1: string as K
+    // 1 - QF<F, A, S>
     if (isText(given)) {
-      newOrder.push({ field: given as K, asc: true });
+      const [field, raw] = this._getFieldOrShortcut(query, given, path);
+      newOrder.push({ field, raw, asc: true });
+      return newOrder;
     }
 
-    // case 2: array as Array<OrderByGiven<K>|K|OrderByGivenRaw>
+    // 2 - Array<OrderByGivenItem<F, A, S>>
     else if (Array.isArray(given)) {
       if (given.length < 1) {
-        return [];
+        return newOrder;
       }
-      const arr = given as Array<OrderByGiven<K> | K | OrderByGivenRaw>;
+      const arr = given as Array<OrderByGivenItem<F, A, S>>;
       arr.forEach((item, index) => {
-        // Case 2A: OrderByGiven<K>|OrderByGivenRaw
-        if (isFilledObj(item)) {
-          let field: K;
-          let raw: string;
-
-          const obj = item as OrderByGiven<K> | OrderByGivenRaw;
-          if (!isEmpty((obj as FieldRaw).raw)) {
-            raw = this._raw((obj as OrderByGivenRaw).raw, `orderBy[${index}].raw`);
-          }
-          if (!isEmpty((obj as FieldRegular<K>).field)) {
-            field = this._field((obj as OrderByGiven<K>).field, `orderBy[${index}].field`);
-          }
-
-          this._fieldXorRaw(field, raw, `orderBy[${index}].field`);
-
-          const asc = this._asc((obj as OrderByGivenAsc).asc, `orderBy[${index}].asc`);
+        // 2A - QF<F, A, S>
+        if (isText(item)) {
+          const [field, raw] = this._getFieldOrShortcut(query, item, `${path}[${index}]`);
+          newOrder.push({ field, raw, asc: true });
+        }
+        // 2B - OrderByGivenItemField<F, A, S>
+        // 2C - OrderByGivenItemRaw
+        else if (isFilledObj(item)) {
+          const [field, raw] = this._getFieldOrRaw<F, A, S>(query, item, `${path}[${index}]`);
+          const asc = this._getAscInObject(item, `${path}[${index}]`);
 
           if (field) {
             newOrder.push({ field, asc });
@@ -506,15 +815,11 @@ class QueryParser implements QueryParserLike {
             newOrder.push({ raw, asc });
           }
         }
-        // Case 2B: K
-        else if (isText(item)) {
-          newOrder.push({ field: this._field(item, ""), asc: true });
-        }
         // other
         else {
           throw new InvalidQueryValueError(`Invalid order by item`, {
-            case: testCase(PCK, 111),
-            path: `orderBy[${index}]`,
+            case: testCase(PCK, "invalid-order-item"),
+            path: `${path}[${index}]`,
             expected: ["string", "object"],
             type: typeof item,
             value: item,
@@ -523,13 +828,17 @@ class QueryParser implements QueryParserLike {
         }
       });
     }
-    // case 3: {'id': true, name: true, ...} as OrderByValue<K>
-    else if (isFilledObj(given)) {
+
+    // 3 - OrderByGivenMap<F, A, S> as {id: true, name: true, ...}
+    else if (isObj(given)) {
+      if (!isFilledObj(given)) {
+        return newOrder;
+      }
       let index = 0;
       for (const [k, v] of Object.entries(given)) {
-        const field = this._field(k, `orderBy(key=${index})`) as K;
-        const asc = this._asc(v, `orderBy.${field}`);
-        newOrder.push({ field, asc });
+        const [field, raw] = this._getFieldOrShortcut(query, k, `${path}(#${index})`);
+        const asc = this._getAscDirect(v, `${path}.${field}`);
+        newOrder.push({ field, raw, asc });
         index++;
       }
     }
@@ -537,8 +846,8 @@ class QueryParser implements QueryParserLike {
     // case: other
     else {
       throw new InvalidQueryValueError(`Invalid order by block`, {
-        case: testCase(PCK, 112),
-        path: "orderBy",
+        case: testCase(PCK, "invalid-order-block"),
+        path,
         expected: ["string", "array", "object"],
         type: typeof given,
         value: given,
@@ -547,45 +856,155 @@ class QueryParser implements QueryParserLike {
     return newOrder;
   }
 
-  protected _pagination(given: PaginationAny, _name: string): PaginationLimit {
+  protected _availableFields<F extends string, A extends string | symbol, S extends string>(
+    given: Array<QueryField<F, A, S>>,
+    aliases: Array<A>,
+    path: string,
+  ): Array<QueryField<F, A, S>> {
+    const result = [] as Array<QueryField<F, A, S>>;
     if (isEmpty(given)) {
-      return {};
+      return result;
     }
-    // Case 1: PaginationLiteral
+    if (isFilledArr(aliases)) {
+      aliases.forEach((alias, index) => {
+        if (!isText(alias)) {
+          throw new InvalidQueryValueError(`Invalid alias item`, {
+            case: testCase(PCK, "xxx"),
+            path: `${path}[${index}]`,
+            expected: ["string"],
+            type: typeof alias,
+            value: alias,
+          });
+        }
+      });
+    } else {
+      aliases = [];
+    }
+
     if (Array.isArray(given)) {
       if (given.length < 1) {
-        return {};
+        return result;
       }
-      return {
-        limit: this._num(given[0], `pagination[0]`, 1),
-        offset: this._num(given[1], `pagination[1]`, 0),
-      };
+      given.forEach((item, index) => {
+        if (!isText(item)) {
+          throw new InvalidQueryValueError(`Invalid field item`, {
+            case: testCase(PCK, "xxx"),
+            path: `${path}[${index}]`,
+            expected: ["string"],
+            type: typeof item,
+            value: item,
+          });
+        }
+        result.push(item);
+      });
+      const allFields = [...result];
+      aliases.forEach((alias) => {
+        result.forEach((item) => {
+          const newField = `${alias as string}.${item}` as QueryField<F, A, S>;
+          if (!allFields.includes(newField)) {
+            allFields.push(newField);
+          }
+        });
+      });
+      return allFields;
     }
-    // Case 2: PaginationPage | PaginationLimit
-    else if (isFilledObj(given)) {
-      if (Object.keys(given).length < 1) {
-        return {};
+    throw new InvalidQueryValueError(`Invalid fields block`, {
+      case: testCase(PCK, "xxx"),
+      path,
+      expected: ["array"],
+      type: typeof given,
+      value: given,
+    });
+  }
+
+  protected _shortcut<S extends string>(given: QueryShortcut<S>, path: string): QueryShortcut<S> {
+    const result = {} as QueryShortcut<S>;
+    if (isEmpty(given)) {
+      return result;
+    }
+    if (isObj(given)) {
+      if (!isFilledObj(given)) {
+        return result;
       }
-      const obj = given as PaginationPage & PaginationLimit;
+      for (const [k, v] of Object.entries(given)) {
+        if (!isText(v)) {
+          throw new InvalidQueryValueError(`Invalid shortcut item`, {
+            case: testCase(PCK, "xxx"),
+            path: `${path}.${k}`,
+            expected: ["string"],
+            type: typeof v,
+            value: v,
+          });
+        }
+        result[k] = v;
+      }
+      return result;
+    }
+    throw new InvalidQueryValueError(`Invalid shortcut block`, {
+      case: testCase(PCK, "xxx"),
+      path,
+      expected: ["object"],
+      type: typeof given,
+      value: given,
+    });
+  }
+
+  protected _pagination<F extends string, A extends string | symbol, S extends string>(
+    query: QueryFinal<F, A, S>,
+    given: PaginationGiven,
+    path: string,
+  ): PaginationFinal {
+    const result: PaginationFinal = !query.isSub
+      ? {
+          limit: 1_000,
+          offset: 0,
+        }
+      : { limit: undefined, offset: undefined };
+
+    if (isEmpty(given)) {
+      return result;
+    }
+
+    // Cases
+    // 1 - PaginationGivenTuple
+    // 2 - PaginationGivenLimit
+    // 3 - PaginationGivenPage
+
+    // 1 - PaginationGivenTuple;
+    if (Array.isArray(given)) {
+      if (given.length < 1) {
+        return result;
+      }
+      result.limit = this._num(given[0], `${path}[0]`, 1, 10_000, 1_000);
+      result.offset = this._num(given[1], `${path}[1]`, 0, 1_000_000, 0);
+      return result;
+    }
+
+    // 2 - PaginationGivenLimit
+    // 3 - PaginationGivenPage
+    else if (isObj(given)) {
+      if (!isFilledObj(given)) {
+        return result;
+      }
+      const obj = given as PaginationGivenLimit & PaginationGivenPage;
       if (!isEmpty(obj.page)) {
-        const page = this._num(obj.page, `pagination.page`, 1);
-        const size = this._num(obj.size, `pagination.size`, 1) ?? 50;
+        const page = this._num(obj.page, `${path}.page`, 1, 100_00, 1);
+        const size = this._num(obj.size, `${path}.size`, 1, 10_000, 1_000);
         ["limit", "offset"].forEach((f) => {
           if (!isEmpty(given[f])) {
             throw new InvalidQueryValueError(
               `If you give page; limit and offset can not be used anymore`,
               {
-                case: testCase(PCK, 160),
+                case: testCase(PCK, "both-limit-offset"),
                 path: "pagination",
                 value: given,
               },
             );
           }
         });
-        return {
-          limit: size,
-          offset: (page - 1) * size,
-        };
+        result.limit = size;
+        result.offset = (page - 1) * size;
+        return result;
       }
       if (!isEmpty(obj.limit)) {
         ["page", "size"].forEach((f) => {
@@ -593,49 +1012,76 @@ class QueryParser implements QueryParserLike {
             throw new InvalidQueryValueError(
               `If you give limit; page and size can not be used anymore`,
               {
-                case: testCase(PCK, 161),
+                case: testCase(PCK, "both-page-size"),
                 path: "pagination",
                 value: given,
               },
             );
           }
         });
-        return {
-          limit: this._num(obj.limit, `pagination.limit`, 1),
-          offset: this._num(obj.offset, `pagination.offset`, 0),
-        };
+        result.limit = this._num(obj.limit, `pagination.limit`, 1, 10_000, 1_000);
+        result.offset = this._num(obj.offset, `pagination.offset`, 0, 1_000_000, 0);
+        return result;
       }
       throw new InvalidQueryValueError(`Pagination should have limit/offset or page/size keys`, {
-        case: testCase(PCK, 162),
-        path: "pagination",
+        case: testCase(PCK, "no-limit-offset"),
+        path,
         value: given,
       });
     }
     throw new InvalidQueryValueError(`Invalid pagination block`, {
-      case: testCase(PCK, 163),
-      path: "pagination",
+      case: testCase(PCK, "invalid-pagination-block"),
+      path,
       expected: ["array", "object"],
       type: typeof given,
       value: given,
     });
   }
+
   // endregion parts
 
-  exec<K extends string>(
-    query: QueryAny<K>,
-    availableFields: Array<K | string>,
+  private _execShared<F extends string, A extends string | symbol, S extends string>(
+    given: QueryGivenExtended<F, A, S>,
+    parent: Partial<QueryFinal<F, A, S>>,
+    name: string,
+  ): QueryFinal<F, A, S> {
+    const query = {} as QueryFinal<F, A, S>;
+    if (parent === undefined) {
+      query.availableFields = given.availableFields;
+      query.shortcut = this._shortcut(given?.shortcut, `${name}.shortcut`);
+      if (query.availableFields.length > 0 || Object.entries(query.availableFields).length > 0) {
+        (query as Mutable<QueryFinal<F, A, S>>).hasAny = true;
+      }
+    } else {
+      (query as Mutable<QueryFinal<F, A, S>>).isSub = true;
+      (query as Mutable<QueryFinal<F, A, S>>).hasAny = parent.hasAny;
+      query.availableFields = parent.availableFields;
+      query.shortcut = parent.shortcut;
+    }
+    query.select = this._select(query, given?.select, `${name}.select`);
+    query.groupBy = this._groupBy(query, given?.groupBy, `${name}.groupBy`);
+    query.where = this._where(query, given?.where, `${name}.where`, true);
+    query.having = this._where(query, given?.having, `${name}.having`, true);
+    query.orderBy = this._orderBy(query, given?.orderBy, `${name}.orderBy`);
+    query.pagination = this._pagination(query, given?.pagination, `${name}.pagination`);
+    return query;
+  }
+
+  exec<F extends string = string, A extends string | symbol = symbol, S extends string = string>(
+    given: QueryGiven<F, A, S>,
+    availableFields: Array<QueryField<F, A, S>>,
+    aliases?: Array<A>,
     name?: string,
-  ): QueryRegular<K> {
-    return {
-      select: this._select(query?.select, availableFields, name),
-      where: this._where("where", query?.where, availableFields, name),
-      having: this._where("having", query?.having, availableFields, name),
-      groupBy: this._groupBy(query?.groupBy, availableFields, name),
-      orderBy: this._orderBy(query?.orderBy, availableFields, name),
-      pagination: this._pagination(query?.pagination, name),
-    };
+  ): QueryFinal<F, A, S> {
+    name = isText(name) ? name : "query";
+    availableFields = this._availableFields(availableFields, aliases, `${name}.availableFields`);
+    const extended: QueryGivenExtended<F, A, S> = isObj(given)
+      ? { ...given, availableFields }
+      : { availableFields };
+    return this._execShared(extended, undefined, name);
   }
 }
+
 setFqn(QueryParser, PCK);
 
 // noinspection JSUnusedGlobalSymbols
