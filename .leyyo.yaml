@@ -1,6 +1,12 @@
-ignore: true
+ignore: false
 rules:
-  - none
+  - app-component
+group: null
+assets:
+  folder: null
+minify:
+  terser: false
+  obfuscator: false
 config:
-  leyyo.query:
+  query:
     foo: bar

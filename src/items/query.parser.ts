@@ -483,6 +483,8 @@ class QueryParser implements QueryParserLike {
       case "gte": // string, number
       case "lt": // string, number
       case "lte": // string, number
+      case "includes": // string, number
+      case "!includes": // string, number boolean
         cond.value = cond.value.filter((v) => !isEmpty(v));
         this._invalidValueLength(1, cond.value, path);
         this._invalidValueType(["string", "number"], cond.value, path);
@@ -537,8 +539,6 @@ class QueryParser implements QueryParserLike {
         return;
       case "in": // string, number, boolean
       case "!in": // string, number, boolean
-      case "includes": // string, number, boolean
-      case "!includes": // string, number, boolean
       case "intersects": // string, number, boolean
       case "!intersects": // string, number, boolean
         if (cond.value.length < 1) {
