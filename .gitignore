@@ -8,8 +8,10 @@
 /coverage/
 # idea setting file
 *.iml
+# leyyo temporary staged file
+.staged.yaml
 # .vscode directory for Visual Studio Code
-# .vscode
+.vscode
 # Yarn Integrity file
 .yarn-integrity
 # Output of 'npm pack'
@@ -32,6 +34,7 @@
 /build/
 # dist directory
 /dist/
+/dist2/
 # Dependency directories
 /node_modules/
 /jspm_packages/
@@ -53,3 +56,4 @@ package-lock.json
 
 # backup files
 /_backup/
+/_runtime/

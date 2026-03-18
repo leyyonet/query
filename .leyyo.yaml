@@ -1,2 +1,6 @@
-leyyo.query:
-  test: true
+ignore: true
+rules:
+  - none
+config:
+  leyyo.query:
+    foo: bar

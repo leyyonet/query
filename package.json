@@ -1,70 +1,65 @@
 {
-  "name": "@leyyo/query",
-  "version": "4.0.5",
-  "description": "Query common component",
-  "keywords": [
-    "Query"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/leyyonet/query.git"
-  },
-  "bugs": {
-    "email": "mustafayelmer@gmail.com",
-    "url": "https://https://github.com/leyyonet/query/issues"
-  },
-  "homepage": "https://https://github.com/leyyonet/query#readme",
-  "author": {
-    "name": "Mustafa Yelmer",
-    "email": "mustafayelmer@gmail.com"
-  },
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "exports": {
-    ".": "./dist/index.js"
-  },
-  "type": "module",
-  "scripts": {
-    "clear:dist": "rimraf dist && rimraf coverage",
-    "clear:rm": "rimraf package-lock.json && rimraf node_modules",
-    "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix",
-    "format:check": "prettier --check \"{src,test}/**/*.{ts,tsx,js}\"",
-    "format:force": "prettier --write \"{src,test}/**/*.{ts,tsx,js}\"",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "cmd:assets": "node -r ts-node/register commands/assets.js",
-    "cmd:minify": "node -r ts-node/register commands/minify.js",
-    "build": "npm run clear:dist && tsc && npm run cmd:minify && npm run cmd:assets",
-    "publish:before": "npm run lint && npm run format:check && npm run test && npm run build",
-    "changeset": "changeset",
-    "changeset:version": "changeset version",
-    "release:verdaccio": "npm run publish:before && changeset publish --registry http://localhost:4873",
-    "release:npm": "npm run publish:before && changeset publish --registry https://registry.npmjs.org"
-  },
-  "files": [
-    "dist/*"
-  ],
-  "license": "ISC",
-  "devDependencies": {
-    "@changesets/cli": "^2.29.8",
-    "@eslint/js": "^9.0.0",
-    "@types/node": "^24.2.1",
-    "@vitest/coverage-istanbul": "^4.0.18",
-    "eslint": "^9.0.0",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-n": "^17.24.0",
-    "javascript-obfuscator": "^5.3.0",
-    "prettier": "^3.8.1",
-    "rimraf": "^6.0.1",
-    "terser": "^5.46.0",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.9.3",
-    "typescript-eslint": "^8.0.0",
-    "vitest": "^4.0.18"
-  },
-  "dependencies": {
-    "@leyyo/common": "4.0.5"
-  }
+    "name": "@leyyo/query",
+    "version": "4.0.6",
+    "description": "Query common component",
+    "keywords": [
+        "Query"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/leyyonet/query.git"
+    },
+    "bugs": {
+        "email": "mustafayelmer@gmail.com",
+        "url": "https://https://github.com/leyyonet/query/issues"
+    },
+    "homepage": "https://https://github.com/leyyonet/query#readme",
+    "author": {
+        "name": "Mustafa Yelmer",
+        "email": "mustafayelmer@gmail.com"
+    },
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "exports": {
+        ".": "./dist/index.js"
+    },
+    "type": "module",
+    "scripts": {
+        "build": "leyyo clear-dist && tsc && leyyo minify && leyyo assets",
+        "build-all": "npm run lint && npm run format-force && npm run test && npm run build",
+        "clear-dist": "leyyo clear-dist",
+        "clear-nm": "leyyo clear-nm",
+        "format-check": "prettier --checkOne \"{src,test}/**/*.{ts,tsx,js}\"",
+        "format-force": "prettier --write \"{src,test}/**/*.{ts,tsx,js}\"",
+        "lint": "eslint src/**/*.ts",
+        "lint-fix": "eslint src/**/*.ts --fix",
+        "publish-npm": "npm run build-all && npm publish --registry https://registry.npmjs.org",
+        "publish-verdaccio": "npm build-all && npm publish --registry http://localhost:4873",
+        "test": "vitest run",
+        "test-coverage": "vitest run --coverage",
+        "test-watch": "vitest"
+    },
+    "files": [
+        "dist/*"
+    ],
+    "license": "ISC",
+    "devDependencies": {
+        "@eslint/js": "^9.0.0",
+        "@types/node": "^24.2.1",
+        "@vitest/coverage-istanbul": "^4.0.18",
+        "eslint": "^9.0.0",
+        "eslint-config-prettier": "^10.1.8",
+        "eslint-plugin-n": "^17.24.0",
+        "prettier": "^3.8.1",
+        "rimraf": "^6.0.1",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.9.3",
+        "typescript-eslint": "^8.0.0",
+        "vitest": "^4.0.18",
+        "@leyyo/leyyo-cli": "1.0.11",
+        "eslint-plugin-unused-imports": "^4.4.1"
+    },
+    "dependencies": {
+        "@leyyo/common": "4.0.16"
+    }
 }
